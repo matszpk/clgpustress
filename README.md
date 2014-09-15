@@ -22,6 +22,19 @@ YOU ARE USING THIS SOFTWARE ONLY FOR OWN RISK!
 - compiler with C++11 support
 - Linux (currently this system is supported).
 
+### Building program
+
+Enter:
+
+make
+
+To clean project enter:
+
+make clean
+
+AMDAPP directory defined in Makefile may be changed for successful compilation. If you have AMDAPP or OPENCL directory
+in other place than /opt/AMDAPP you must change AMDAPP variable in Makefile file.
+
 ### Memory requirements
 
 Program requires 256*workSize bytes in graphics card memory. WorkSize currently is computed in following way:
