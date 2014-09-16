@@ -28,23 +28,26 @@ kernel void gpuStress(uint n, const global float4* restrict input,
             global float4* restrict output, float p0, float p1, float p2, float p3, float p4)
 {
     size_t gid = get_global_id(0);
-    size_t lid = get_local_id(0);
     
-    float4 x1 = input[gid*4];
-    float4 x2 = input[gid*4+1];
-    float4 x3 = input[gid*4+2];
-    float4 x4 = input[gid*4+3];
-    
-    for (uint j = 0; j < KITERSNUM; j++)
+    for (uint i = 0; i < BLOCKSNUM; i++)
     {
-        x1 = polyeval4d(p0, p1, p2, p3, p4, x1);
-        x2 = polyeval4d(p0, p1, p2, p3, p4, x2);
-        x3 = polyeval4d(p0, p1, p2, p3, p4, x3);
-        x4 = polyeval4d(p0, p1, p2, p3, p4, x4);
+        float x1 = input[gid*4];
+        float x2 = input[gid*4+1];
+        float x3 = input[gid*4+2];
+        float x4 = input[gid*4+3];
+        for (uint j = 0; j < KITERSNUM; j++)
+        {
+            x1 = polyeval4d(p0, p1, p2, p3, p4, x1);
+            x2 = polyeval4d(p0, p1, p2, p3, p4, x2);
+            x3 = polyeval4d(p0, p1, p2, p3, p4, x3);
+            x4 = polyeval4d(p0, p1, p2, p3, p4, x4);
+        }
+        
+        output[gid*4] = x1;
+        output[gid*4+1] = x2;
+        output[gid*4+2] = x3;
+        output[gid*4+3] = x4;
+        
+        gid += get_global_size(0);
     }
-    
-    output[gid*4] = x1;
-    output[gid*4+1] = x2;
-    output[gid*4+2] = x3;
-    output[gid*4+3] = x4;
 }

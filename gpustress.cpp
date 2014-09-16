@@ -59,28 +59,182 @@ public:
     }
 };
 
+static const char* clKernel1Source =
+"#pragma OPENCL FP_CONTRACT OFF\n"
+"\n"
+"kernel void gpuStress(uint n, const global float4* restrict input,\n"
+"                global float4* restrict output)\n"
+"{\n"
+"    local float localData[GROUPSIZE];\n"
+"    size_t gid = get_global_id(0);\n"
+"    size_t lid = get_local_id(0);\n"
+"    \n"
+"    for (uint i = 0; i < BLOCKSNUM; i++)\n"
+"    {\n"
+"        float factor;\n"
+"        float4 tmpValue1, tmpValue2, tmpValue3, tmpValue4;\n"
+"        float4 tmp2Value1, tmp2Value2, tmp2Value3, tmp2Value4;\n"
+"        \n"
+"        float4 inValue1 = input[gid*4];\n"
+"        float4 inValue2 = input[gid*4+1];\n"
+"        float4 inValue3 = input[gid*4+2];\n"
+"        float4 inValue4 = input[gid*4+3];\n"
+"        \n"
+"        for (uint j = 0; j < KITERSNUM; j++)\n"
+"        {\n"
+"            tmpValue1 = mad(inValue1, -inValue2, inValue3);\n"
+"            tmpValue2 = mad(inValue2, inValue3, inValue4);\n"
+"            tmpValue3 = mad(inValue3, -inValue4, inValue1);\n"
+"            tmpValue4 = mad(inValue4, inValue1, inValue2);\n"
+"            \n"
+"            localData[lid] = (tmpValue4.x+tmpValue4.y+tmpValue4.z+tmpValue4.w)*0.25f;\n"
+"            barrier(CLK_LOCAL_MEM_FENCE);\n"
+"            factor = localData[(lid+7)%GROUPSIZE];\n"
+"            barrier(CLK_LOCAL_MEM_FENCE);\n"
+"            \n"
+"            tmpValue1 += factor;\n"
+"            tmp2Value1 = mad(tmpValue1, tmpValue2, tmpValue3);\n"
+"            tmp2Value2 = mad(tmpValue2, tmpValue3, tmpValue4);\n"
+"            tmp2Value3 = mad(tmpValue3, tmpValue4, tmpValue1);\n"
+"            tmp2Value4 = mad(tmpValue4, tmpValue1, tmpValue2);\n"
+"            \n"
+"            localData[lid] = (tmpValue2.x+tmpValue2.y+tmpValue2.z+tmpValue2.w)*0.25f;\n"
+"            barrier(CLK_LOCAL_MEM_FENCE);\n"
+"            factor = localData[(lid+55)%GROUPSIZE];\n"
+"            barrier(CLK_LOCAL_MEM_FENCE);\n"
+"            \n"
+"            tmp2Value1 += factor;\n"
+"            tmpValue1 = mad(tmp2Value1, -tmp2Value2, tmp2Value3);\n"
+"            tmpValue2 = mad(tmp2Value2, tmp2Value3, -tmp2Value4);\n"
+"            tmpValue3 = mad(tmp2Value3, -tmp2Value4, tmp2Value1);\n"
+"            tmpValue4 = mad(tmp2Value4, tmp2Value1, -tmp2Value2);\n"
+"            \n"
+"            inValue1 = as_float4((as_int4(tmpValue1) & (0xc7ffffffU)) | 0x40000000U);\n"
+"            inValue2 = as_float4((as_int4(tmpValue2) & (0xc7ffffffU)) | 0x40000000U);\n"
+"            inValue3 = as_float4((as_int4(tmpValue3) & (0xc7ffffffU)) | 0x40000000U);\n"
+"            inValue4 = as_float4((as_int4(tmpValue4) & (0xc7ffffffU)) | 0x40000000U);\n"
+"        }\n"
+"        \n"
+"        output[gid*4] = inValue1;\n"
+"        output[gid*4+1] = inValue2;\n"
+"        output[gid*4+2] = inValue3;\n"
+"        output[gid*4+3] = inValue4;\n"
+"        \n"
+"        gid += get_global_size(0);\n"
+"    }\n"
+"}\n";
+
+static const char* clKernel2Source =
+"#pragma OPENCL FP_CONTRACT OFF\n"
+"\n"
+"kernel void gpuStress(uint n, const global float4* restrict input,\n"
+"                global float4* restrict output)\n"
+"{\n"
+"    size_t gid = get_global_id(0);\n"
+"    size_t lid = get_local_id(0);\n"
+"    \n"
+"    for (uint i = 0; i < BLOCKSNUM; i++)\n"
+"    {\n"
+"        float4 tmpValue1, tmpValue2, tmpValue3, tmpValue4;\n"
+"        float4 tmp2Value1, tmp2Value2, tmp2Value3, tmp2Value4;\n"
+"        \n"
+"        float4 inValue1 = input[gid*4];\n"
+"        float4 inValue2 = input[gid*4+1];\n"
+"        float4 inValue3 = input[gid*4+2];\n"
+"        float4 inValue4 = input[gid*4+3];\n"
+"        \n"
+"        for (uint j = 0; j < KITERSNUM; j++)\n"
+"        {\n"
+"            tmpValue1 = mad(inValue1, -inValue2, inValue3);\n"
+"            tmpValue2 = mad(inValue2, inValue3, inValue4);\n"
+"            tmpValue3 = mad(inValue3, -inValue4, inValue1);\n"
+"            tmpValue4 = mad(inValue4, inValue1, inValue2);\n"
+"            \n"
+"            tmp2Value1 = mad(tmpValue1, tmpValue2, tmpValue3);\n"
+"            tmp2Value2 = mad(tmpValue2, tmpValue3, tmpValue4);\n"
+"            tmp2Value3 = mad(tmpValue3, tmpValue4, tmpValue1);\n"
+"            tmp2Value4 = mad(tmpValue4, tmpValue1, tmpValue2);\n"
+"            \n"
+"            tmpValue1 = mad(tmp2Value1, -tmp2Value2, tmp2Value3);\n"
+"            tmpValue2 = mad(tmp2Value2, tmp2Value3, -tmp2Value4);\n"
+"            tmpValue3 = mad(tmp2Value3, -tmp2Value4, tmp2Value1);\n"
+"            tmpValue4 = mad(tmp2Value4, tmp2Value1, -tmp2Value2);\n"
+"            \n"
+"            inValue1 = as_float4((as_int4(tmpValue1) & (0xc7ffffffU)) | 0x40000000U);\n"
+"            inValue2 = as_float4((as_int4(tmpValue2) & (0xc7ffffffU)) | 0x40000000U);\n"
+"            inValue3 = as_float4((as_int4(tmpValue3) & (0xc7ffffffU)) | 0x40000000U);\n"
+"            inValue4 = as_float4((as_int4(tmpValue4) & (0xc7ffffffU)) | 0x40000000U);\n"
+"        }\n"
+"        \n"
+"        output[gid*4] = inValue1;\n"
+"        output[gid*4+1] = inValue2;\n"
+"        output[gid*4+2] = inValue3;\n"
+"        output[gid*4+3] = inValue4;\n"
+"        gid += get_global_size(0);\n"
+"    }\n"
+"}\n";
+
+static const char* clKernelPWSource =
+"#pragma OPENCL FP_CONTRACT OFF\n"
+"\n"
+"static inline float4 polyeval4d(float p0, float p1, float p2, float p3, float p4, float4 x)\n"
+"{\n"
+"    return mad(x, mad(x, mad(x, mad(x, p4, p3), p2), p1), p0);\n"
+"}\n"
+"\n"
+"kernel void gpuStress(uint n, const global float4* restrict input,\n"
+"            global float4* restrict output, float p0, float p1, float p2, float p3, float p4)\n"
+"{\n"
+"    size_t gid = get_global_id(0);\n"
+"    \n"
+"    for (uint i = 0; i < BLOCKSNUM; i++)\n"
+"    {\n"
+"        float x1 = input[gid*4];\n"
+"        float x2 = input[gid*4+1];\n"
+"        float x3 = input[gid*4+2];\n"
+"        float x4 = input[gid*4+3];\n"
+"        for (uint j = 0; j < KITERSNUM; j++)\n"
+"        {\n"
+"            x1 = polyeval4d(p0, p1, p2, p3, p4, x1);\n"
+"            x2 = polyeval4d(p0, p1, p2, p3, p4, x2);\n"
+"            x3 = polyeval4d(p0, p1, p2, p3, p4, x3);\n"
+"            x4 = polyeval4d(p0, p1, p2, p3, p4, x4);\n"
+"        }\n"
+"        \n"
+"        output[gid*4] = x1;\n"
+"        output[gid*4+1] = x2;\n"
+"        output[gid*4+2] = x3;\n"
+"        output[gid*4+3] = x4;\n"
+"        \n"
+"        gid += get_global_size(0);\n"
+"    }\n"
+"}\n";
+
 static int useCPUs = 0;
 static int useGPUs = 0;
 static int workFactor = 256;
+static int blocksNum = 2;
 static int passItersNum = 10;
 static int choosenKitersNum = 0;
 
 static const char* programName = nullptr;
 static bool usePolyWalker = false;
-static bool threeTimes = false;
+static int builtinKernel = 0; // default
 
 static std::mutex stdOutputMutex;
 
 static size_t clKernelSourceSize = 0;
-static char* clKernelSource = nullptr;
+static const char* clKernelSource = nullptr;
 
 static const poptOption optionsTable[] =
 {
     { "useCPUs", 'C', POPT_ARG_VAL, &useCPUs, 'C', "use CPUs", NULL },
     { "useGPUs", 'G', POPT_ARG_VAL, &useGPUs, 'G', "use GPUs", NULL },
     { "program", 'P', POPT_ARG_STRING, &programName, 'P', "CL program name", "NAME" },
+    { "builtin", 'T', POPT_ARG_INT, &builtinKernel, 'T', "CL builtin kernel", "[0-2]" },
     { "workFactor", 'W', POPT_ARG_INT, &workFactor, 'W',
         "set workSize=factor*compUnits*grpSize", "FACTOR" },
+    { "blocksNum", 'B', POPT_ARG_INT, &blocksNum, 'B', "blocks number", "BLOCKS" },
     { "passIters", 'S', POPT_ARG_INT, &passItersNum, 'S', "pass iterations num",
         "ITERATION" },
     { "kiters", 'j', POPT_ARG_INT, &choosenKitersNum, 'j', "kitersNum",
@@ -162,8 +316,11 @@ private:
     cl::Buffer clBuffer1, clBuffer2;
     cl::Buffer clBuffer3, clBuffer4;
     
+    cxuint blocksNum;
     cxuint passItersNum;
     cxuint kitersNum;
+    
+    size_t bufItemsNum;
     
     float* initialValues;
     float* toCompare;
@@ -184,7 +341,7 @@ private:
     void calibrateKernel();
 public:
     GPUStressTester(cxuint id, cl::Platform& clPlatform, cl::Device& clDevice, size_t workFactor,
-            cxuint passItersNum);
+            cxuint blocksNum, cxuint passItersNum);
     ~GPUStressTester();
     
     void runTest();
@@ -196,8 +353,9 @@ public:
 };
 
 GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Device& _clDevice,
-        size_t workFactor, cxuint _passItersNum) : id(_id), clDevice(_clDevice),
-        passItersNum(_passItersNum), initialValues(nullptr), toCompare(nullptr)
+        size_t workFactor, cxuint _blocksNum, cxuint _passItersNum) : id(_id), clDevice(_clDevice),
+        blocksNum(_blocksNum), passItersNum(_passItersNum),
+        initialValues(nullptr), toCompare(nullptr)
 {
     failed = false;
     
@@ -209,12 +367,14 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
     clDevice.getInfo(CL_DEVICE_MAX_COMPUTE_UNITS, &maxComputeUnits);
     
     workSize = size_t(maxComputeUnits)*groupSize*workFactor;
+    bufItemsNum = (workSize<<4)*blocksNum;
     
     {
         std::lock_guard<std::mutex> l(stdOutputMutex);
         std::cout << "Preparing StressTester for\n  " <<
                 "#" << id << " " << platformName << ":" << deviceName <<
                 "\n    SetUp: workSize=" << workSize <<
+                ", memory=" << (bufItemsNum<<4)/(1048576.0) << " MB"
                 ", workFactor=" << workFactor <<
                 ", computeUnits=" << maxComputeUnits <<
                 ", groupSize=" << groupSize << std::endl;
@@ -229,30 +389,35 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
     clCmdQueue1 = cl::CommandQueue(clContext, clDevice);
     clCmdQueue2 = cl::CommandQueue(clContext, clDevice);
     
-    clBuffer1 = cl::Buffer(clContext, CL_MEM_READ_WRITE, workSize<<6);
-    clBuffer2 = cl::Buffer(clContext, CL_MEM_READ_WRITE, workSize<<6);
-    clBuffer3 = cl::Buffer(clContext, CL_MEM_READ_WRITE, workSize<<6);
-    clBuffer4 = cl::Buffer(clContext, CL_MEM_READ_WRITE, workSize<<6);
+    clBuffer1 = cl::Buffer(clContext, CL_MEM_READ_WRITE, bufItemsNum<<2);
+    clBuffer2 = cl::Buffer(clContext, CL_MEM_READ_WRITE, bufItemsNum<<2);
+    clBuffer3 = cl::Buffer(clContext, CL_MEM_READ_WRITE, bufItemsNum<<2);
+    clBuffer4 = cl::Buffer(clContext, CL_MEM_READ_WRITE, bufItemsNum<<2);
     
-    initialValues = new float[workSize<<4];
-    toCompare = new float[workSize<<4];
-    results = new float[workSize<<4];
+    
+    
+    initialValues = new float[bufItemsNum];
+    toCompare = new float[bufItemsNum];
+    results = new float[bufItemsNum];
     
     std::mt19937_64 random;
     if (!usePolyWalker)
     {
-        for (size_t i = 0; i < workSize<<4; i++)
+        for (size_t i = 0; i < bufItemsNum; i++)
             initialValues[i] = (float(random())/float(
                         std::mt19937_64::max()-std::mt19937_64::min())-0.5f)*0.04f;
     }
     else
     {   /* data for polywalker */
-        for (size_t i = 0; i < workSize<<4; i++)
+        for (size_t i = 0; i < bufItemsNum; i++)
             initialValues[i] = (float(random())/float(
                         std::mt19937_64::max()-std::mt19937_64::min()))*2e6 - 1e6;
     }
+    /*for (size_t i = 0; i < workSize<<5; i++)
+        std::cout << "in=" << i << ":" << initialValues[i] << '\n';
+    std::cout.flush();*/
     
-    clCmdQueue1.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0), workSize<<6,
+    clCmdQueue1.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0), bufItemsNum<<2,
             initialValues);
     
     calibrateKernel();
@@ -295,14 +460,14 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
     
     // get results
     if ((passItersNum&1) == 0)
-        clCmdQueue1.enqueueReadBuffer(clBuffer1, CL_TRUE, size_t(0), workSize<<6,
+        clCmdQueue1.enqueueReadBuffer(clBuffer1, CL_TRUE, size_t(0), bufItemsNum<<2,
                     toCompare);
     else //
-        clCmdQueue1.enqueueReadBuffer(clBuffer2, CL_TRUE, size_t(0), workSize<<6,
+        clCmdQueue1.enqueueReadBuffer(clBuffer2, CL_TRUE, size_t(0), bufItemsNum<<2,
                     toCompare);
     
     // print results
-    /*for (size_t i = 0; i < workSize<<4; i++)
+    /*for (size_t i = 0; i < bufItemsNum; i++)
         std::cout << "out=" << i << ":" << toCompare[i] << '\n';
     std::cout.flush();*/
 }
@@ -339,8 +504,8 @@ void GPUStressTester::calibrateKernel()
             try
             {
                 char buildOptions[128];
-                snprintf(buildOptions, 128, "-O5 -DGROUPSIZE=%zu -DKITERSNUM=%u",
-                        groupSize, kitersNum);
+                snprintf(buildOptions, 128, "-O5 -DGROUPSIZE=%zu -DKITERSNUM=%u -DBLOCKSNUM=%u",
+                        groupSize, kitersNum, blocksNum);
                 clProgram.build(buildOptions);
             }
             catch(const cl::Error& error)
@@ -383,26 +548,14 @@ void GPUStressTester::calibrateKernel()
             const cl_ulong currentTime = eventEndTime-eventStartTime;
             
             double currentBandwidth;
+            currentBandwidth = 2.0*4.0*double(bufItemsNum) / double(currentTime);
             double currentPerf;
             if (!usePolyWalker)
-            {
-                currentBandwidth = 6.0*64.0*double(workSize) /
+                currentPerf = 2.0*3.0*double(kitersNum)*double(bufItemsNum) /
                         double(currentTime);
-                currentPerf = 3.0*96.0*double(kitersNum)*double(workSize) /
-                        double(currentTime);
-            }
             else
-            {
-                currentBandwidth = 2.0*64.0*double(workSize) /
+                currentPerf = 8.0*double(kitersNum)*double(bufItemsNum) /
                         double(currentTime);
-                currentPerf = 128.0*double(kitersNum)*double(workSize) /
-                        double(currentTime);
-                if (threeTimes)
-                {
-                    currentBandwidth *= 3.0;
-                    currentPerf *= 3.0;
-                }
-            }
             
             if (currentBandwidth*currentPerf > bestBandwidth*bestPerf)
             {
@@ -443,8 +596,8 @@ void GPUStressTester::calibrateKernel()
     try
     {
         char buildOptions[128];
-        snprintf(buildOptions, 128, "-O5 -DGROUPSIZE=%zu -DKITERSNUM=%u",
-                    groupSize, bestKitersNum);
+        snprintf(buildOptions, 128, "-O5 -DGROUPSIZE=%zu -DKITERSNUM=%u -DBLOCKSNUM=%u",
+                    groupSize, bestKitersNum, blocksNum);
         clProgram.build(buildOptions);
     }
     catch(const cl::Error& error)
@@ -476,23 +629,14 @@ void GPUStressTester::printStatus(cxuint passNum)
     lastTime = currentTime;
     
     double bandwidth, perf;
+    bandwidth = 2.0*10.0*4.0*double(passItersNum)*double(bufItemsNum) / double(nanos);
     if (!usePolyWalker)
-    {
-        bandwidth = 6.0*10.0*64.0*double(passItersNum)*double(workSize) / double(nanos);
-        perf = 3.0*10.0*96.0*double(kitersNum)*double(passItersNum)*double(workSize)
+        perf = 2.0*10.0*3.0*double(kitersNum)*double(passItersNum)*double(bufItemsNum)
                 / double(nanos);
-    }
     else
-    {
-        bandwidth = 2.0*10.0*64.0*double(passItersNum)*double(workSize) / double(nanos);
-        perf = 10.0*128.0*double(kitersNum)*double(passItersNum)*double(workSize)
+        perf = 10.0*8.0*double(kitersNum)*double(passItersNum)*double(bufItemsNum)
                 / double(nanos);
-        if (threeTimes)
-        {
-            bandwidth *= 3.0;
-            perf *= 3.0;
-        }
-    }
+    
     std::lock_guard<std::mutex> l(stdOutputMutex);
     std::cout << "#" << id << " " << platformName << ":" << deviceName <<
             " was passed PASS #" << passNum << "\n"
@@ -525,7 +669,7 @@ try
     lastTime = std::chrono::high_resolution_clock::now();
     
     do {
-        clCmdQueue2.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0), workSize<<6,
+        clCmdQueue2.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0), bufItemsNum<<2,
                 initialValues);
         /* run execution 1 */
         for (cxuint i = 0; i < passItersNum; i++)
@@ -563,19 +707,19 @@ try
             }
             // get results
             if ((passItersNum&1) == 0)
-                clCmdQueue2.enqueueReadBuffer(clBuffer3, CL_TRUE, size_t(0), workSize<<6,
+                clCmdQueue2.enqueueReadBuffer(clBuffer3, CL_TRUE, size_t(0), bufItemsNum<<2,
                             results);
             else //
-                clCmdQueue2.enqueueReadBuffer(clBuffer4, CL_TRUE, size_t(0), workSize<<6,
+                clCmdQueue2.enqueueReadBuffer(clBuffer4, CL_TRUE, size_t(0), bufItemsNum<<2,
                             results);
-            if (::memcmp(toCompare, results, workSize<<6))
+            if (::memcmp(toCompare, results, bufItemsNum<<2))
                 throw MyException("FAILED COMPUTATIONS!!!!");
             
             printStatus(pass2Num);
             pass2Num += 2;
         }
         
-        clCmdQueue2.enqueueWriteBuffer(clBuffer3, CL_TRUE, size_t(0), workSize<<6,
+        clCmdQueue2.enqueueWriteBuffer(clBuffer3, CL_TRUE, size_t(0), bufItemsNum<<2,
                 initialValues);
         /* run execution 2 */
         for (cxuint i = 0; i < passItersNum; i++)
@@ -613,12 +757,12 @@ try
             }
             // get results
             if ((passItersNum&1) == 0)
-                clCmdQueue2.enqueueReadBuffer(clBuffer1, CL_TRUE, size_t(0), workSize<<6,
+                clCmdQueue2.enqueueReadBuffer(clBuffer1, CL_TRUE, size_t(0), bufItemsNum<<2,
                             results);
             else //
-                clCmdQueue2.enqueueReadBuffer(clBuffer2, CL_TRUE, size_t(0), workSize<<6,
+                clCmdQueue2.enqueueReadBuffer(clBuffer2, CL_TRUE, size_t(0), bufItemsNum<<2,
                             results);
-            if (::memcmp(toCompare, results, workSize<<6))
+            if (::memcmp(toCompare, results, bufItemsNum<<2))
                 throw MyException("FAILED COMPUTATIONS!!!!");
             printStatus(pass1Num);
             pass1Num += 2;
@@ -714,6 +858,16 @@ int main(int argc, const char** argv)
         std::cerr << "PassIters is not positive!" << std::endl;
         return 1;
     }
+    if (blocksNum <= 0)
+    {
+        std::cerr << "BlocksNum is not positive!" << std::endl;
+        return 1;
+    }
+    if (builtinKernel < 0 || builtinKernel > 2)
+    {
+        std::cerr << "Builtin kernel number out of range!" << std::endl;
+        return 1;
+    }
     if (choosenKitersNum < 0 || choosenKitersNum > 25)
     {
         std::cerr << "KitersNum out of range" << std::endl;
@@ -727,15 +881,10 @@ int main(int argc, const char** argv)
     if (!useGPUs && !useCPUs)
         useGPUs = 1;
     
-    if (programName == nullptr)
-        programName = "gpustressKernel2.cl";
-    if (::strcmp(programName, "gpustressPW.cl") == 0)
-        usePolyWalker = true;
-    else if (::strcmp(programName, "gpustressPW2.cl") == 0 ||
-            ::strcmp(programName, "gpustressPW3.cl") == 0)
+    if (programName != nullptr)
     {
-        usePolyWalker = true;
-        threeTimes = true;
+        if (::strcmp(programName, "gpustressPW.cl") == 0)
+            usePolyWalker = true;
     }
     
     int retVal = 0;
@@ -744,7 +893,31 @@ int main(int argc, const char** argv)
     std::vector<std::thread*> testerThreads;
     try
     {
-        clKernelSource = loadFromFile(programName, clKernelSourceSize);
+        if (programName != nullptr)
+        {
+            std::cout << "Load kernel code from file " << programName << std::endl;
+            clKernelSource = loadFromFile(programName, clKernelSourceSize);
+        }
+        else
+        {
+            std::cout << "Choosing builtin kernel" << std::endl;
+            switch(builtinKernel)
+            {
+                case 0:
+                    clKernelSource = clKernel1Source;
+                    break;
+                case 1:
+                    clKernelSource = clKernel2Source;
+                    break;
+                case 2:
+                    clKernelSource = clKernelPWSource;
+                    break;
+                default:
+                    throw MyException("Unsupported builtin kernel!");
+                    break;
+            }
+            clKernelSourceSize = ::strlen(clKernelSource);
+        }
         
         std::vector<std::pair<cl::Platform, cl::Device> > choosenCLDevices =
             getChoosenCLDevices();
@@ -752,10 +925,11 @@ int main(int argc, const char** argv)
         {
             auto& p = choosenCLDevices[i];
             gpuStressTesters.push_back(new GPUStressTester(i, p.first, p.second, workFactor,
-                            passItersNum));
+                            blocksNum, passItersNum));
         }
         
-        delete[] clKernelSource;
+        if (programName != nullptr)
+            delete[] clKernelSource;
         clKernelSource = nullptr;
         
         for (size_t i = 0; i < choosenCLDevices.size(); i++)
