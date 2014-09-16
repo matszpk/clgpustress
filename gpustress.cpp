@@ -481,7 +481,8 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
                 "\n    SetUp: workSize=" << workSize <<
                 ", memory=" << devMemReqs << " MB"
                 ", workFactor=" << workFactor <<
-                ", computeUnits=" << maxComputeUnits <<
+                ", blocksNum=" << blocksNum <<
+                ",\n      computeUnits=" << maxComputeUnits <<
                 ", groupSize=" << groupSize << std::endl;
     }
     
@@ -1090,7 +1091,7 @@ int main(int argc, const char** argv)
             throw MyException("OpenCL devices not found!");
         
         std::cout <<
-            "\nWARNING: THIS PROGRAM CAN OVERHEAT YOUR GRAPHIC CARD FASTER (AND BETTER) THAN "
+            "\nWARNING: THIS PROGRAM CAN OVERHEAT YOUR GRAPHICS CARD FASTER (AND BETTER) THAN "
             "ANY FURMARK STRESS.\nPLEASE USE THIS PROGRAM VERY CAREFULLY!!!\n"
             "RECOMMEND TO RUN THIS PROGRAM ON STOCK PARAMETERS "
             "(CLOCKS, VOLTAGES, ESPECIALLY MEMORY CLOCKS).\n"
