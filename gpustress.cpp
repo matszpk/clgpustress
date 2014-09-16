@@ -483,7 +483,8 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
                 ", workFactor=" << workFactor <<
                 ", blocksNum=" << blocksNum <<
                 ",\n      computeUnits=" << maxComputeUnits <<
-                ", groupSize=" << groupSize << std::endl;
+                ", groupSize=" << groupSize <<
+                ", passIters=" << passItersNum << std::endl;
     }
     
     cl_context_properties clContextProps[5];
@@ -1030,9 +1031,9 @@ int main(int argc, const char** argv)
         return 1;
     }
     
-    if (workFactor < 0)
+    if (workFactor <= 0)
     {
-        std::cerr << "WorkFactor is negative!" << std::endl;
+        std::cerr << "WorkFactor is not positive!" << std::endl;
         return 1;
     }
     if (passItersNum <= 0)
