@@ -655,23 +655,47 @@ void GPUStressTester::calibrateKernel()
                 clKernel.setArg(7, examplePoly[4]);
             }
             
-            cl::Event profEvent;
-            profCmdQueue.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
-                    cl::NDRange(workSize), cl::NDRange(groupSize), NULL, &profEvent);
-            profEvent.wait();
-            int eventStatus;
-            profEvent.getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
-            if (eventStatus < 0)
+            cl_ulong kernelTimes[5];
+            for (cxuint k = 0; k < 5; k++)
             {
-                std::ostringstream oss;
-                oss << "Failed NDRangeKernel with code: " << eventStatus << std::endl;
-                throw MyException(oss.str());
+                cl::Event profEvent;
+                profCmdQueue.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
+                        cl::NDRange(workSize), cl::NDRange(groupSize), NULL, &profEvent);
+                profEvent.wait();
+                int eventStatus;
+                profEvent.getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
+                if (eventStatus < 0)
+                {
+                    std::ostringstream oss;
+                    oss << "Failed NDRangeKernel with code: " << eventStatus << std::endl;
+                    throw MyException(oss.str());
+                }
+                
+                cl_ulong eventStartTime, eventEndTime;
+                profEvent.getProfilingInfo(CL_PROFILING_COMMAND_START, &eventStartTime);
+                profEvent.getProfilingInfo(CL_PROFILING_COMMAND_END, &eventEndTime);
+                kernelTimes[k] = eventEndTime-eventStartTime;
             }
             
-            cl_ulong eventStartTime, eventEndTime;
-            profEvent.getProfilingInfo(CL_PROFILING_COMMAND_START, &eventStartTime);
-            profEvent.getProfilingInfo(CL_PROFILING_COMMAND_END, &eventEndTime);
-            const cl_ulong currentTime = eventEndTime-eventStartTime;
+            // sort kernels times
+            for (cxuint k = 0; k < 5; k++)
+            {
+                for (cxuint l = k+1; l < 5; l++)
+                    if (kernelTimes[k]>kernelTimes[l])
+                        std::swap(kernelTimes[k], kernelTimes[l]);
+                //std::cout << "SortedTime: " << kernelTimes[k] << std::endl;
+            }
+            
+            cxuint acceptedToAvg = 1;
+            for (; acceptedToAvg < 5; acceptedToAvg++)
+                if (double(kernelTimes[acceptedToAvg]-kernelTimes[0]) >
+                            double(kernelTimes[0])*0.07)
+                    break;
+            //std::cout << "acceptedToAvg: " << acceptedToAvg << std::endl;
+            const cl_ulong currentTime =
+                    std::accumulate(kernelTimes, kernelTimes+acceptedToAvg, 0ULL)/acceptedToAvg;
+            /*std::cout << "avg is: " << currentTime << std::endl;
+            std::cout << "..." << std::endl;*/
             
             double currentBandwidth;
             currentBandwidth = 2.0*4.0*double(bufItemsNum) / double(currentTime);
