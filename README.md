@@ -10,7 +10,7 @@ THIS PROGRAM. I RECOMMENDED TO RUN THIS PROGRAM ON ALL STOCK PARAMETERS (CLOCKS,
 
 THIS PROGRAM IS INFLUENCED BY PRIMEGRID GENEFER AND ALSO VERY SENSITIVE FOR ANY OVERCLOCKING, BUT MUCH BETTER LOADS GPU CORE. MOREOVER MUCH BETTER BURNS GRAPHICS CARD THAN FURMARK!
 
-THIS PROGRAM IS TESTED ONLY IN RADEON HD 7850 AND CAN BEHAVES INCORRECTLY ON OTHER GRAPHICS CARDS.
+THIS PROGRAM WAS TESTED ONLY IN RADEON HD 7850 AND CAN BEHAVES INCORRECTLY ON OTHER GRAPHICS CARDS.
 
 YOU ARE USING THIS SOFTWARE ONLY FOR OWN RISK!
 
@@ -24,15 +24,15 @@ YOU ARE USING THIS SOFTWARE ONLY FOR OWN RISK!
 
 ### Building program
 
-Enter:
+Enter command:
 
 make
 
-To clean project enter:
+To clean project enter command:
 
 make clean
 
-AMDAPP directory defined in Makefile may be changed for successful compilation. If you have AMDAPP or OPENCL directory
+AMDAPP variable defined in Makefile may be changed for successful compilation. If you have AMDAPP or OPENCL directory
 in other place than /opt/AMDAPP you must change AMDAPP variable in Makefile file.
 
 ### Memory requirements
