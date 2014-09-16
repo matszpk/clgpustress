@@ -31,10 +31,10 @@ kernel void gpuStress(uint n, const global float4* restrict input,
     
     for (uint i = 0; i < BLOCKSNUM; i++)
     {
-        float x1 = input[gid*4];
-        float x2 = input[gid*4+1];
-        float x3 = input[gid*4+2];
-        float x4 = input[gid*4+3];
+        float4 x1 = input[gid*4];
+        float4 x2 = input[gid*4+1];
+        float4 x3 = input[gid*4+2];
+        float4 x4 = input[gid*4+3];
         for (uint j = 0; j < KITERSNUM; j++)
         {
             x1 = polyeval4d(p0, p1, p2, p3, p4, x1);

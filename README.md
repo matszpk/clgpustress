@@ -37,10 +37,7 @@ in other place than /opt/AMDAPP you must change AMDAPP variable in Makefile file
 
 ### Memory requirements
 
-Program requires 256*workSize bytes in graphics card memory. WorkSize currently is computed in following way:
-maxComputeUnits * maxWorkSize * workFactor. For example workFactor=512 in Radeon HD7850 requires 512 MB, because:
-16 * 256 * 512 * 256 = 536870912 -> 512MB.
-
+Program prints size of memory required in GPU (device) memory.
 Program needs also host memory: 192*workSize bytes for buffers.
 
 ### Usage

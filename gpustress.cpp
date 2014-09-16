@@ -189,10 +189,10 @@ static const char* clKernelPWSource =
 "    \n"
 "    for (uint i = 0; i < BLOCKSNUM; i++)\n"
 "    {\n"
-"        float x1 = input[gid*4];\n"
-"        float x2 = input[gid*4+1];\n"
-"        float x3 = input[gid*4+2];\n"
-"        float x4 = input[gid*4+3];\n"
+"        float4 x1 = input[gid*4];\n"
+"        float4 x2 = input[gid*4+1];\n"
+"        float4 x3 = input[gid*4+2];\n"
+"        float4 x4 = input[gid*4+3];\n"
 "        for (uint j = 0; j < KITERSNUM; j++)\n"
 "        {\n"
 "            x1 = polyeval4d(p0, p1, p2, p3, p4, x1);\n"
@@ -874,9 +874,14 @@ int main(int argc, const char** argv)
         return 1;
     }
     
-    std::cout << "WARNING: THIS PROGRAM CAN OVERHEAT YOUR GRAPHIC CARD FASTER THAN "
-                 "ANY FURMARK STRESS.\nPLEASE USE CAREFULLY!!!" << std::endl;
-    std::this_thread::sleep_for(std::chrono::milliseconds(4000));
+    std::cout << "CLGPUStress 0.0.1 by Mateusz Szpakowski. "
+        "Program is delivered under GPLv2 License\n\n"
+        "WARNING: THIS PROGRAM CAN OVERHEAT YOUR GRAPHIC CARD FASTER (AND BETTER) THAN "
+        "ANY FURMARK STRESS.\nPLEASE USE THIS PROGRAM VERY CAREFULLY!!!\n"
+        "RECOMMEND TO RUN THIS PROGRAM ON STOCK PARAMETERS "
+        "(CLOCKS, VOLTAGES, ESPECIALLY MEMORY CLOCKS).\n"
+        "TO TERMINATE THIS PROGRAM PLEASE USE STANDARD CTRL-C." << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(8000));
     
     if (!useGPUs && !useCPUs)
         useGPUs = 1;
@@ -911,6 +916,7 @@ int main(int argc, const char** argv)
                     break;
                 case 2:
                     clKernelSource = clKernelPWSource;
+                    usePolyWalker = true;
                     break;
                 default:
                     throw MyException("Unsupported builtin kernel!");
@@ -938,7 +944,8 @@ int main(int argc, const char** argv)
     }
     catch(const cl::Error& error)
     {
-        delete[] clKernelSource;
+        if (programName != nullptr)
+            delete[] clKernelSource;
         std::lock_guard<std::mutex> l(stdOutputMutex);
         std::cerr << "OpenCL error happened: " << error.what() <<
                 ", Code: " << error.err() << std::endl;
@@ -946,7 +953,8 @@ int main(int argc, const char** argv)
     }
     catch(const std::exception& ex)
     {
-        delete[] clKernelSource;
+        if (programName != nullptr)
+            delete[] clKernelSource;
         std::lock_guard<std::mutex> l(stdOutputMutex);
         std::cerr << "Standard exception happened: " << ex.what() << std::endl;
         retVal = 1;
