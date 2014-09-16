@@ -1055,7 +1055,7 @@ int main(int argc, const char** argv)
         return 1;
     }
     
-    std::cout << "CLGPUStress 0.0.1 by Mateusz Szpakowski. "
+    std::cout << "CLGPUStress 0.0.2 by Mateusz Szpakowski. "
         "Program is delivered under GPLv2 License" << std::endl;
     
     if (listDevices)
