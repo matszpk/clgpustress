@@ -243,7 +243,8 @@ static const poptOption optionsTable[] =
     { "useCPUs", 'C', POPT_ARG_VAL, &useCPUs, 'C', "use CPUs", nullptr },
     { "useGPUs", 'G', POPT_ARG_VAL, &useGPUs, 'G', "use GPUs", nullptr },
     { "useAMD", 'A', POPT_ARG_VAL, &useAMDPlatform, 'A', "use AMD platform", nullptr },
-    { "useNVIDIA", 'N', POPT_ARG_VAL, &useNVIDIAPlatform, 'N', "use NVIDIA platform", nullptr },
+    { "useNVIDIA", 'N', POPT_ARG_VAL, &useNVIDIAPlatform, 'N',
+        "use NVIDIA platform", nullptr },
     { "useIntel", 'E', POPT_ARG_VAL, &useIntelPlatform, 'L', "use Intel platform", nullptr },
     { "program", 'P', POPT_ARG_STRING, &programName, 'P', "CL program name", "NAME" },
     { "builtin", 'T', POPT_ARG_INT, &builtinKernel, 'T', "CL builtin kernel", "[0-2]" },
@@ -254,8 +255,7 @@ static const poptOption optionsTable[] =
     { "blocksNum", 'B', POPT_ARG_INT, &blocksNum, 'B', "blocks number", "BLOCKS" },
     { "passIters", 'S', POPT_ARG_INT, &passItersNum, 'S', "pass iterations num",
         "ITERATION" },
-    { "kiters", 'j', POPT_ARG_INT, &choosenKitersNum, 'j', "kitersNum",
-        "ITERATION" },
+    { "kiters", 'j', POPT_ARG_INT, &choosenKitersNum, 'j', "kitersNum", "ITERATION" },
     { "dontWait", 'w', POPT_ARG_VAL, &dontWait, 'w', "dont wait few seconds", nullptr },
     POPT_AUTOHELP
     { nullptr, 0, 0, nullptr, 0 }
@@ -439,8 +439,8 @@ private:
     void buildKernel(cxuint kitersNum, cxuint blocksNum, bool alwaysPrintBuildLog);
     void calibrateKernel();
 public:
-    GPUStressTester(cxuint id, cl::Platform& clPlatform, cl::Device& clDevice, size_t workFactor,
-            cxuint blocksNum, cxuint passItersNum);
+    GPUStressTester(cxuint id, cl::Platform& clPlatform, cl::Device& clDevice,
+                    size_t workFactor, cxuint blocksNum, cxuint passItersNum);
     ~GPUStressTester();
     
     void runTest();
@@ -452,8 +452,8 @@ public:
 };
 
 GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Device& _clDevice,
-        size_t workFactor, cxuint _blocksNum, cxuint _passItersNum) : id(_id), clDevice(_clDevice),
-        blocksNum(_blocksNum), passItersNum(_passItersNum),
+        size_t workFactor, cxuint _blocksNum, cxuint _passItersNum) :
+        id(_id), clDevice(_clDevice), blocksNum(_blocksNum), passItersNum(_passItersNum),
         initialValues(nullptr), toCompare(nullptr)
 {
     failed = false;
@@ -656,7 +656,7 @@ void GPUStressTester::calibrateKernel()
         {
             std::lock_guard<std::mutex> l(stdOutputMutex);
             std::cout << "Calibrating Kernel for\n  " <<
-                    "#" << id << " " << platformName << ":" << deviceName << "..." << std::endl;
+                "#" << id << " " << platformName << ":" << deviceName << "..." << std::endl;
         }
         
         cl::CommandQueue profCmdQueue(clContext, clDevice, CL_QUEUE_PROFILING_ENABLE);
@@ -719,7 +719,7 @@ void GPUStressTester::calibrateKernel()
                     break;
             //std::cout << "acceptedToAvg: " << acceptedToAvg << std::endl;
             const cl_ulong currentTime =
-                    std::accumulate(kernelTimes, kernelTimes+acceptedToAvg, 0ULL)/acceptedToAvg;
+                std::accumulate(kernelTimes, kernelTimes+acceptedToAvg, 0ULL)/acceptedToAvg;
             /*std::cout << "avg is: " << currentTime << std::endl;
             std::cout << "..." << std::endl;*/
             
@@ -742,9 +742,9 @@ void GPUStressTester::calibrateKernel()
             /*{
                 std::lock_guard<std::mutex> l(stdOutputMutex);
                 std::cout << "Choose for kernel \n  " <<
-                        "#" << id << " " << platformName << ":" << deviceName << "\n"
-                        "  BestKitersNum: " << kitersNum << ", Bandwidth: " << currentBandwidth <<
-                        " GB/s, Performance: " << currentPerf << " GFLOPS" << std::endl;
+                    "#" << id << " " << platformName << ":" << deviceName << "\n"
+                    "  BestKitersNum: " << kitersNum << ", Bandwidth: " << currentBandwidth <<
+                    " GB/s, Performance: " << currentPerf << " GFLOPS" << std::endl;
             }*/
         }
         /* if choosen we compile real code */
@@ -796,13 +796,14 @@ void GPUStressTester::printStatus(cxuint passNum)
         perf = 10.0*8.0*double(kitersNum)*double(passItersNum)*double(bufItemsNum)
                 / double(nanos);
     
-    std::lock_guard<std::mutex> l(stdOutputMutex);
     const int32_t startMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
                 currentTime-startTime).count();
     
     char timeStrBuf[128];
     snprintf(timeStrBuf, 128, "%02u:%02u:%02u.%03u", (startMillis/3600000),
              (startMillis/60000)%60, (startMillis/1000)%60, (startMillis%1000));
+    
+    std::lock_guard<std::mutex> l(stdOutputMutex);
     std::cout << "#" << id << " " << platformName << ":" << deviceName <<
             " was passed PASS #" << passNum << "\n"
             "Approx. bandwidth: " << bandwidth << " GB/s, "
@@ -873,9 +874,9 @@ try
                 exec2Events[i].getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
                 if (eventStatus < 0)
                 {
-                    std::ostringstream oss;
-                    oss << "Failed NDRangeKernel with code: " << eventStatus << std::endl;
-                    throw MyException(oss.str());
+                    char strBuf[64];
+                    snprintf(strBuf, 64, "Failed NDRangeKernel with code: %u", eventStatus);
+                    throw MyException(strBuf);
                 }
                 exec2Events[i] = cl::Event(); // release event
             }
@@ -932,9 +933,9 @@ try
                 exec1Events[i].getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
                 if (eventStatus < 0)
                 {
-                    std::ostringstream oss;
-                    oss << "Failed NDRangeKernel with code: " << eventStatus << std::endl;
-                    throw MyException(oss.str());
+                    char strBuf[64];
+                    snprintf(strBuf, 64, "Failed NDRangeKernel with code: %u", eventStatus);
+                    throw MyException(strBuf);
                 }
                 exec1Events[i] = cl::Event(); // release event
             }
