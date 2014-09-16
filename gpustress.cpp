@@ -33,6 +33,7 @@
 #include <mutex>
 #include <random>
 #include <chrono>
+#include <sys/stat.h>
 #include <popt.h>
 #include <CL/cl.hpp>
 
@@ -262,6 +263,12 @@ static const poptOption optionsTable[] =
 
 static char* loadFromFile(const char* filename, size_t& size)
 {
+    struct stat stbuf;
+    if (stat(filename, &stbuf)<0)
+        throw MyException("No permissions or file doesnt exists");
+    if (!S_ISREG(stbuf.st_mode))
+        throw MyException("This is not regular file");
+    
     std::ifstream ifs(filename, std::ios::binary);
     if (!ifs)
         throw MyException("Cant open file");
@@ -1040,7 +1047,7 @@ int main(int argc, const char** argv)
         else
             choosenCLDevices = getChoosenCLDevicesFromList(devicesListString);
         if (choosenCLDevices.empty())
-            throw MyException("No such OpenCL devices found!");
+            throw MyException("OpenCL devices not found!");
         
         std::cout <<
             "\nWARNING: THIS PROGRAM CAN OVERHEAT YOUR GRAPHIC CARD FASTER (AND BETTER) THAN "
