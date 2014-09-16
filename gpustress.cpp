@@ -223,6 +223,7 @@ static int useIntelPlatform = 0;
 static bool useAllPlatforms = false;
 static int listDevices = 0;
 static const char* devicesListString = nullptr;
+static int dontWait = 0;
 
 static const char* programName = nullptr;
 static bool usePolyWalker = false;
@@ -235,14 +236,14 @@ static const char* clKernelSource = nullptr;
 
 static const poptOption optionsTable[] =
 {
-    { "listDevices", 'l', POPT_ARG_VAL, &listDevices, 'l', "list OpenCL devices", NULL },
+    { "listDevices", 'l', POPT_ARG_VAL, &listDevices, 'l', "list OpenCL devices", nullptr },
     { "devicesList", 'L', POPT_ARG_STRING, &devicesListString, 'L',
         "specify list of devices in form: 'platformId:deviceId,....'", "DEVICELIST" },
-    { "useCPUs", 'C', POPT_ARG_VAL, &useCPUs, 'C', "use CPUs", NULL },
-    { "useGPUs", 'G', POPT_ARG_VAL, &useGPUs, 'G', "use GPUs", NULL },
-    { "useAMD", 'A', POPT_ARG_VAL, &useAMDPlatform, 'A', "use AMD platform", NULL },
-    { "useNVIDIA", 'N', POPT_ARG_VAL, &useNVIDIAPlatform, 'N', "use NVIDIA platform", NULL },
-    { "useIntel", 'E', POPT_ARG_VAL, &useIntelPlatform, 'L', "use Intel platform", NULL },
+    { "useCPUs", 'C', POPT_ARG_VAL, &useCPUs, 'C', "use CPUs", nullptr },
+    { "useGPUs", 'G', POPT_ARG_VAL, &useGPUs, 'G', "use GPUs", nullptr },
+    { "useAMD", 'A', POPT_ARG_VAL, &useAMDPlatform, 'A', "use AMD platform", nullptr },
+    { "useNVIDIA", 'N', POPT_ARG_VAL, &useNVIDIAPlatform, 'N', "use NVIDIA platform", nullptr },
+    { "useIntel", 'E', POPT_ARG_VAL, &useIntelPlatform, 'L', "use Intel platform", nullptr },
     { "program", 'P', POPT_ARG_STRING, &programName, 'P', "CL program name", "NAME" },
     { "builtin", 'T', POPT_ARG_INT, &builtinKernel, 'T', "CL builtin kernel", "[0-2]" },
     { "inAndOut", 'I', POPT_ARG_VAL, &useInputAndOutput, 'I',
@@ -254,8 +255,9 @@ static const poptOption optionsTable[] =
         "ITERATION" },
     { "kiters", 'j', POPT_ARG_INT, &choosenKitersNum, 'j', "kitersNum",
         "ITERATION" },
+    { "dontWait", 'w', POPT_ARG_VAL, &dontWait, 'w', "dont wait few seconds", nullptr },
     POPT_AUTOHELP
-    { NULL, 0, 0, NULL, 0 }
+    { nullptr, 0, 0, nullptr, 0 }
 };
 
 static char* loadFromFile(const char* filename, size_t& size)
@@ -397,6 +399,7 @@ private:
     
     typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point;
     
+    time_point startTime;
     time_point lastTime;
     
     cl::CommandQueue clCmdQueue1, clCmdQueue2;
@@ -745,10 +748,16 @@ void GPUStressTester::printStatus(cxuint passNum)
                 / double(nanos);
     
     std::lock_guard<std::mutex> l(stdOutputMutex);
+    const int32_t startMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
+                currentTime-startTime).count();
+    
+    char timeStrBuf[128];
+    snprintf(timeStrBuf, 128, "%02u:%02u:%02u.%03u", (startMillis/3600000),
+             (startMillis/60000)%60, (startMillis/1000)%60, (startMillis%1000));
     std::cout << "#" << id << " " << platformName << ":" << deviceName <<
             " was passed PASS #" << passNum << "\n"
             "Approx. bandwidth: " << bandwidth << " GB/s, "
-            "Approx. perf: " << perf << " GFLOPS" << std::endl;
+            "Approx. perf: " << perf << " GFLOPS, elapsed: " << timeStrBuf << std::endl;
 }
 
 void GPUStressTester::runTest()
@@ -773,7 +782,7 @@ try
     cxuint pass1Num = 1;
     cxuint pass2Num = 2;
     
-    lastTime = std::chrono::high_resolution_clock::now();
+    startTime = lastTime = std::chrono::high_resolution_clock::now();
     
     do {
         clCmdQueue2.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0), bufItemsNum<<2,
@@ -1039,7 +1048,8 @@ int main(int argc, const char** argv)
             "RECOMMEND TO RUN THIS PROGRAM ON STOCK PARAMETERS "
             "(CLOCKS, VOLTAGES, ESPECIALLY MEMORY CLOCKS).\n"
             "TO TERMINATE THIS PROGRAM PLEASE USE STANDARD CTRL-C.\n" << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(8000));
+        if (dontWait==0)
+            std::this_thread::sleep_for(std::chrono::milliseconds(8000));
         
         if (programName != nullptr)
         {
