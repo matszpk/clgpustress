@@ -614,6 +614,30 @@ void GPUStressTester::buildKernel(cxuint kitersNum, cxuint blocksNum, bool alway
     if (alwaysPrintBuildLog)
         printBuildLog();
     clKernel = cl::Kernel(clProgram, "gpuStress");
+    
+    // fixing groupSize and workSize if needed and if possible
+    size_t newGroupSize;
+    clKernel.getWorkGroupInfo(clDevice, CL_KERNEL_WORK_GROUP_SIZE, &newGroupSize);
+    if (groupSize > newGroupSize)
+    {   // fix it
+        cxuint shifts = 0;
+        size_t v;
+        for (shifts = 0, v = groupSize; v > newGroupSize; v>>=1, shifts++);
+        
+        if ((groupSize&((1ULL<<shifts)-1ULL)) != 0)
+            throw MyException("Cant determine new group size!");
+        
+        groupSize = groupSize>>shifts;
+        workFactor <<= shifts;
+        {
+            std::lock_guard<std::mutex> l(stdOutputMutex);
+            std::cout << "Fixed groupSize for\n  " <<
+                "#" << id << " " << platformName << ":" << deviceName <<
+                "\n    SetUp: workFactor=" << workFactor <<
+                ", groupSize=" << groupSize << std::endl;
+        }
+        buildKernel(kitersNum, blocksNum, alwaysPrintBuildLog);
+    }
 }
 
 void GPUStressTester::calibrateKernel()
