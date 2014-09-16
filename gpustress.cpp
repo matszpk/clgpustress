@@ -20,6 +20,7 @@
 #define __CL_ENABLE_EXCEPTIONS 1
 
 #include <iostream>
+#include <algorithm>
 #include <cstdio>
 #include <fstream>
 #include <string>
@@ -27,6 +28,7 @@
 #include <sstream>
 #include <vector>
 #include <utility>
+#include <set>
 #include <thread>
 #include <mutex>
 #include <random>
@@ -212,9 +214,15 @@ static int useCPUs = 0;
 static int useGPUs = 0;
 static int workFactor = 256;
 static int blocksNum = 2;
-static int passItersNum = 10;
+static int passItersNum = 32;
 static int choosenKitersNum = 0;
 static int useInputAndOutput = 0;
+static int useAMDPlatform = 0;
+static int useNVIDIAPlatform = 0;
+static int useIntelPlatform = 0;
+static bool useAllPlatforms = false;
+static int listDevices = 0;
+static const char* devicesListString = nullptr;
 
 static const char* programName = nullptr;
 static bool usePolyWalker = false;
@@ -227,8 +235,14 @@ static const char* clKernelSource = nullptr;
 
 static const poptOption optionsTable[] =
 {
+    { "listDevices", 'l', POPT_ARG_VAL, &listDevices, 'l', "list OpenCL devices", NULL },
+    { "devicesList", 'L', POPT_ARG_STRING, &devicesListString, 'L',
+        "specify list of devices in form: 'platformId:deviceId,....'", "DEVICELIST" },
     { "useCPUs", 'C', POPT_ARG_VAL, &useCPUs, 'C', "use CPUs", NULL },
     { "useGPUs", 'G', POPT_ARG_VAL, &useGPUs, 'G', "use GPUs", NULL },
+    { "useAMD", 'A', POPT_ARG_VAL, &useAMDPlatform, 'A', "use AMD platform", NULL },
+    { "useNVIDIA", 'N', POPT_ARG_VAL, &useNVIDIAPlatform, 'N', "use NVIDIA platform", NULL },
+    { "useIntel", 'E', POPT_ARG_VAL, &useIntelPlatform, 'L', "use Intel platform", NULL },
     { "program", 'P', POPT_ARG_STRING, &programName, 'P', "CL program name", "NAME" },
     { "builtin", 'T', POPT_ARG_INT, &builtinKernel, 'T', "CL builtin kernel", "[0-2]" },
     { "inAndOut", 'I', POPT_ARG_VAL, &useInputAndOutput, 'I',
@@ -279,8 +293,15 @@ std::vector<std::pair<cl::Platform, cl::Device> > getChoosenCLDevices()
     {
         std::string platformName;
         clPlatform.getInfo(CL_PLATFORM_NAME, &platformName);
-        if (platformName.find("Intel") != std::string::npos)
-            continue;
+        
+        if (!useAllPlatforms)
+        {
+            if ((useIntelPlatform==0 || platformName.find("Intel") == std::string::npos) &&
+                (useAMDPlatform==0 || platformName.find("AMD") == std::string::npos) &&
+                (useNVIDIAPlatform==0 || platformName.find("NVIDIA") == std::string::npos))
+                continue;
+        }
+        
         std::vector<cl::Device> clDevices;
         cl_device_type deviceType = 0;
         if (useGPUs)
@@ -293,6 +314,72 @@ std::vector<std::pair<cl::Platform, cl::Device> > getChoosenCLDevices()
             outDevices.push_back(std::make_pair(clPlatform, clDevice));
     }
     return outDevices;
+}
+
+std::vector<std::pair<cl::Platform, cl::Device> > getChoosenCLDevicesFromList(const char* str)
+{
+    std::vector<std::pair<cl::Platform, cl::Device> > outDevices;
+    std::vector<cl::Platform> clPlatforms;
+    cl::Platform::get(&clPlatforms);
+    
+    std::set<std::pair<cxuint,cxuint> > deviceIdsSet;
+    
+    std::string inStr = std::string(str);
+    for (char& c: inStr)
+        c = (c==',')?' ':c;
+    std::istringstream iss(inStr);
+    while (!iss.eof())
+    {
+        std::string ss;
+        iss >> ss;
+        cxuint platformId, deviceId;
+        if (sscanf(ss.c_str(), "%u:%u", &platformId, &deviceId) != 2)
+            throw MyException("Cant parse device list");
+        
+        if (platformId >= clPlatforms.size())
+            throw MyException("PlatformID out of range");
+        cl::Platform clPlatform = clPlatforms[platformId];
+        
+        std::vector<cl::Device> clDevices;
+        clPlatform.getDevices(CL_DEVICE_TYPE_ALL, &clDevices);
+        if (deviceId >= clDevices.size())
+            throw MyException("DeviceID out of range");
+        
+        if (!deviceIdsSet.insert(std::make_pair(platformId, deviceId)).second)
+            throw MyException("Duplicated devices in device list!");
+        
+        cl::Device clDevice = clDevices[deviceId];
+        outDevices.push_back(std::make_pair(clPlatform, clDevice));
+    }
+    
+    return outDevices;
+}
+
+static void listCLDevices()
+{
+    std::vector<std::pair<cl::Platform, cl::Device> > outDevices;
+    std::vector<cl::Platform> clPlatforms;
+    cl::Platform::get(&clPlatforms);
+    
+    for (cl_uint i = 0; i < clPlatforms.size(); i++)
+    {
+        cl::Platform& clPlatform = clPlatforms[i];
+        std::string platformName;
+        clPlatform.getInfo(CL_PLATFORM_NAME, &platformName);
+        
+        std::vector<cl::Device> clDevices;
+        clPlatform.getDevices(CL_DEVICE_TYPE_ALL, &clDevices);
+        
+        for (cl_uint j = 0; j < clDevices.size(); j++)
+        {
+            cl::Device& clDevice = clDevices[j];
+            std::string deviceName;
+            clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
+            
+            std::cout << i << ":" << j << "  " << platformName << ":" << deviceName << "\n";
+        }
+    }
+    std::cout.flush();
 }
 
 static const float  examplePoly[5] = 
@@ -913,16 +1000,18 @@ int main(int argc, const char** argv)
     }
     
     std::cout << "CLGPUStress 0.0.1 by Mateusz Szpakowski. "
-        "Program is delivered under GPLv2 License\n\n"
-        "WARNING: THIS PROGRAM CAN OVERHEAT YOUR GRAPHIC CARD FASTER (AND BETTER) THAN "
-        "ANY FURMARK STRESS.\nPLEASE USE THIS PROGRAM VERY CAREFULLY!!!\n"
-        "RECOMMEND TO RUN THIS PROGRAM ON STOCK PARAMETERS "
-        "(CLOCKS, VOLTAGES, ESPECIALLY MEMORY CLOCKS).\n"
-        "TO TERMINATE THIS PROGRAM PLEASE USE STANDARD CTRL-C." << std::endl;
-    std::this_thread::sleep_for(std::chrono::milliseconds(8000));
+        "Program is delivered under GPLv2 License" << std::endl;
     
+    if (listDevices)
+    {
+        listCLDevices();
+        return 0;
+    }
+        
     if (!useGPUs && !useCPUs)
         useGPUs = 1;
+    if (!useAMDPlatform && !useNVIDIAPlatform && !useIntelPlatform)
+        useAllPlatforms = true;
     
     if (programName != nullptr)
     {
@@ -936,6 +1025,22 @@ int main(int argc, const char** argv)
     std::vector<std::thread*> testerThreads;
     try
     {
+        std::vector<std::pair<cl::Platform, cl::Device> > choosenCLDevices;
+        if (devicesListString == nullptr)
+            choosenCLDevices = getChoosenCLDevices();
+        else
+            choosenCLDevices = getChoosenCLDevicesFromList(devicesListString);
+        if (choosenCLDevices.empty())
+            throw MyException("No such OpenCL devices found!");
+        
+        std::cout <<
+            "\nWARNING: THIS PROGRAM CAN OVERHEAT YOUR GRAPHIC CARD FASTER (AND BETTER) THAN "
+            "ANY FURMARK STRESS.\nPLEASE USE THIS PROGRAM VERY CAREFULLY!!!\n"
+            "RECOMMEND TO RUN THIS PROGRAM ON STOCK PARAMETERS "
+            "(CLOCKS, VOLTAGES, ESPECIALLY MEMORY CLOCKS).\n"
+            "TO TERMINATE THIS PROGRAM PLEASE USE STANDARD CTRL-C.\n" << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(8000));
+        
         if (programName != nullptr)
         {
             std::cout << "Load kernel code from file " << programName << std::endl;
@@ -943,7 +1048,7 @@ int main(int argc, const char** argv)
         }
         else
         {
-            std::cout << "Choosing builtin kernel" << std::endl;
+            std::cout << "Choosing builtin kernel: " << builtinKernel << std::endl;
             switch(builtinKernel)
             {
                 case 0:
@@ -963,8 +1068,6 @@ int main(int argc, const char** argv)
             clKernelSourceSize = ::strlen(clKernelSource);
         }
         
-        std::vector<std::pair<cl::Platform, cl::Device> > choosenCLDevices =
-            getChoosenCLDevices();
         for (size_t i = 0; i < choosenCLDevices.size(); i++)
         {
             auto& p = choosenCLDevices[i];
