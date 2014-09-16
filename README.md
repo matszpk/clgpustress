@@ -46,19 +46,16 @@ Program needs also host memory: 192*workSize bytes for buffers.
 
 - print help: ./gpustress -?
 
-- run stress: ./gpustress -G -W512 -S32
+- run stress: ./gpustress -G -W512 -S32 -B2 -T0
 
-- run specific OpenCL code (only in program directory): ./gpustress -G -W512 -S40 -P gpustressPW.cl
-
-Currently program should be run in project directory, because loads OpenCL source codes available in this place.
-If option '-j' is not specified then program automatically calibrate test for device c
+If option '-j' is not specified then program automatically calibrate test for device.
 
 ## supported tests
 
-- gpustressKernel.cl - original test with local memory usage (good for memory testing)
-- gpustressKernel2.cl - improved version for memory bandwidth
-- gpustressKernel3.cl - next version
-- gpustressPW.cl - Polynomial evaluator
-- gpustressPW2.cl - Polynomial evaluator (3 loops)
-- gpustressPW3.cl - Polynomial evaluator (1 triple-loop)
+Now, tests has been built in program.
 
+Tests list:
+
+- 0 - standard with local memory checking
+- 1 - standard without local memory checking
+- 2 - polynomial walking
