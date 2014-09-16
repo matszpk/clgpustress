@@ -773,7 +773,7 @@ void GPUStressTester::printBuildLog()
     std::string buildLog;
     clProgram.getBuildInfo(clDevice, CL_PROGRAM_BUILD_LOG, &buildLog);
     std::lock_guard<std::mutex> l(stdOutputMutex);
-    std::cout << "Program build log \n  " <<
+    std::cout << "Program build log:\n  " <<
             platformName << ":" << deviceName << "\n:--------------------\n" <<
             buildLog << std::endl;
 }
@@ -972,11 +972,11 @@ catch(const cl::Error& error)
     try
     {
         std::ostringstream oss;
-        oss << "OpenCL error happened: " << error.what() << ", Code: " << error.err();;
+        oss << "OpenCL error happened: " << error.what() << ", Code: " << error.err();
         oss.flush();
         failMessage = oss.str();
         std::lock_guard<std::mutex> l(stdOutputMutex);
-        std::cerr << "Failed StressTester for" <<
+        std::cerr << "Failed StressTester for\n  " <<
                 "#" << id  << " " << platformName << ":" << deviceName << ": " <<
                 failMessage << std::endl;
     }
@@ -1096,7 +1096,7 @@ int main(int argc, const char** argv)
             "\nWARNING: THIS PROGRAM CAN OVERHEAT YOUR GRAPHICS CARD FASTER (AND BETTER) THAN "
             "ANY FURMARK STRESS.\nPLEASE USE THIS PROGRAM VERY CAREFULLY!!!\n"
             "RECOMMEND TO RUN THIS PROGRAM ON STOCK PARAMETERS "
-            "(CLOCKS, VOLTAGES, ESPECIALLY MEMORY CLOCKS).\n"
+            "(CLOCKS, VOLTAGES, ESPECIALLY MEMORY CLOCK).\n"
             "TO TERMINATE THIS PROGRAM PLEASE USE STANDARD CTRL-C.\n" << std::endl;
         if (dontWait==0)
             std::this_thread::sleep_for(std::chrono::milliseconds(8000));
