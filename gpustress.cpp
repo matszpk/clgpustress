@@ -436,6 +436,7 @@ private:
     void printBuildLog();
     void printStatus(cxuint passNum);
     
+    void buildKernel(cxuint kitersNum, cxuint blocksNum, bool alwaysPrintBuildLog);
     void calibrateKernel();
 public:
     GPUStressTester(cxuint id, cl::Platform& clPlatform, cl::Device& clDevice, size_t workFactor,
@@ -521,10 +522,10 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
         std::cout << "in=" << i << ":" << initialValues[i] << '\n';
     std::cout.flush();*/
     
+    calibrateKernel();
+    
     clCmdQueue1.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0), bufItemsNum<<2,
             initialValues);
-    
-    calibrateKernel();
     
     clKernel.setArg(0, cl_uint(workSize));
     if (usePolyWalker)
@@ -592,6 +593,29 @@ GPUStressTester::~GPUStressTester()
     delete[] results;
 }
 
+void GPUStressTester::buildKernel(cxuint kitersNum, cxuint blocksNum, bool alwaysPrintBuildLog)
+{
+    cl::Program::Sources clSources;
+    clSources.push_back(std::make_pair(clKernelSource, clKernelSourceSize));
+    clProgram = cl::Program(clContext, clSources);
+    
+    try
+    {
+        char buildOptions[128];
+        snprintf(buildOptions, 128, "-O5 -DGROUPSIZE=%zu -DKITERSNUM=%u -DBLOCKSNUM=%u",
+                groupSize, kitersNum, blocksNum);
+        clProgram.build(buildOptions);
+    }
+    catch(const cl::Error& error)
+    {
+        printBuildLog();
+        throw;
+    }
+    if (alwaysPrintBuildLog)
+        printBuildLog();
+    clKernel = cl::Kernel(clProgram, "gpuStress");
+}
+
 void GPUStressTester::calibrateKernel()
 {
     cxuint bestKitersNum = 1;
@@ -610,25 +634,7 @@ void GPUStressTester::calibrateKernel()
         
         for (cxuint kitersNum = 1; kitersNum <= 25; kitersNum++)
         {
-            cl::Program::Sources clSources;
-            clSources.push_back(std::make_pair(clKernelSource, clKernelSourceSize));
-            clProgram = cl::Program(clContext, clSources);
-            
-            try
-            {
-                char buildOptions[128];
-                snprintf(buildOptions, 128, "-O5 -DGROUPSIZE=%zu -DKITERSNUM=%u -DBLOCKSNUM=%u",
-                        groupSize, kitersNum, blocksNum);
-                clProgram.build(buildOptions);
-            }
-            catch(const cl::Error& error)
-            {
-                printBuildLog();
-                throw;
-            }
-            //printBuildLog();
-            
-            clKernel = cl::Kernel(clProgram, "gpuStress");
+            buildKernel(kitersNum, blocksNum, false);
             
             clKernel.setArg(0, cl_uint(workSize));
             clKernel.setArg(1, clBuffer1);
@@ -706,24 +712,7 @@ void GPUStressTester::calibrateKernel()
     
     kitersNum = bestKitersNum;
     
-    cl::Program::Sources clSources;
-    clSources.push_back(std::make_pair(clKernelSource, clKernelSourceSize));
-    clProgram = cl::Program(clContext, clSources);
-    
-    try
-    {
-        char buildOptions[128];
-        snprintf(buildOptions, 128, "-O5 -DGROUPSIZE=%zu -DKITERSNUM=%u -DBLOCKSNUM=%u",
-                    groupSize, bestKitersNum, blocksNum);
-        clProgram.build(buildOptions);
-    }
-    catch(const cl::Error& error)
-    {
-        printBuildLog();
-        throw;
-    }
-    printBuildLog();
-    clKernel = cl::Kernel(clProgram, "gpuStress");
+    buildKernel(kitersNum, blocksNum, true);
 }
 
 void GPUStressTester::printBuildLog()
