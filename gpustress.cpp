@@ -622,6 +622,9 @@ void GPUStressTester::calibrateKernel()
     double bestBandwidth = 0.0;
     double bestPerf = 0.0;
     
+    clCmdQueue1.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0), bufItemsNum<<2,
+            initialValues);
+    
     if (choosenKitersNum == 0)
     {
         {
@@ -632,7 +635,7 @@ void GPUStressTester::calibrateKernel()
         
         cl::CommandQueue profCmdQueue(clContext, clDevice, CL_QUEUE_PROFILING_ENABLE);
         
-        for (cxuint kitersNum = 1; kitersNum <= 25; kitersNum++)
+        for (cxuint kitersNum = 1; kitersNum <= 30; kitersNum++)
         {
             buildKernel(kitersNum, blocksNum, false);
             
@@ -998,7 +1001,7 @@ int main(int argc, const char** argv)
         std::cerr << "Builtin kernel number out of range!" << std::endl;
         return 1;
     }
-    if (choosenKitersNum < 0 || choosenKitersNum > 25)
+    if (choosenKitersNum < 0 || choosenKitersNum > 30)
     {
         std::cerr << "KitersNum out of range" << std::endl;
         return 1;
