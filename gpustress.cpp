@@ -62,8 +62,7 @@ public:
 static const char* clKernel1Source =
 "#pragma OPENCL FP_CONTRACT OFF\n"
 "\n"
-"kernel void gpuStress(uint n, const global float4* restrict input,\n"
-"                global float4* restrict output)\n"
+"kernel void gpuStress(uint n, const global float4* input, global float4* output)\n"
 "{\n"
 "    local float localData[GROUPSIZE];\n"
 "    size_t gid = get_global_id(0);\n"
@@ -127,8 +126,7 @@ static const char* clKernel1Source =
 static const char* clKernel2Source =
 "#pragma OPENCL FP_CONTRACT OFF\n"
 "\n"
-"kernel void gpuStress(uint n, const global float4* restrict input,\n"
-"                global float4* restrict output)\n"
+"kernel void gpuStress(uint n, const global float4* input, global float4* output)\n"
 "{\n"
 "    size_t gid = get_global_id(0);\n"
 "    size_t lid = get_local_id(0);\n"
@@ -182,8 +180,8 @@ static const char* clKernelPWSource =
 "    return mad(x, mad(x, mad(x, mad(x, p4, p3), p2), p1), p0);\n"
 "}\n"
 "\n"
-"kernel void gpuStress(uint n, const global float4* restrict input,\n"
-"            global float4* restrict output, float p0, float p1, float p2, float p3, float p4)\n"
+"kernel void gpuStress(uint n, const global float4* input,\n"
+"            global float4* output, float p0, float p1, float p2, float p3, float p4)\n"
 "{\n"
 "    size_t gid = get_global_id(0);\n"
 "    \n"
@@ -216,6 +214,7 @@ static int workFactor = 256;
 static int blocksNum = 2;
 static int passItersNum = 10;
 static int choosenKitersNum = 0;
+static int useInputAndOutput = 0;
 
 static const char* programName = nullptr;
 static bool usePolyWalker = false;
@@ -232,6 +231,8 @@ static const poptOption optionsTable[] =
     { "useGPUs", 'G', POPT_ARG_VAL, &useGPUs, 'G', "use GPUs", NULL },
     { "program", 'P', POPT_ARG_STRING, &programName, 'P', "CL program name", "NAME" },
     { "builtin", 'T', POPT_ARG_INT, &builtinKernel, 'T', "CL builtin kernel", "[0-2]" },
+    { "inAndOut", 'I', POPT_ARG_VAL, &useInputAndOutput, 'I',
+      "use input and output buffers (doubles memory reqs.)" },
     { "workFactor", 'W', POPT_ARG_INT, &workFactor, 'W',
         "set workSize=factor*compUnits*grpSize", "FACTOR" },
     { "blocksNum", 'B', POPT_ARG_INT, &blocksNum, 'B', "blocks number", "BLOCKS" },
@@ -370,11 +371,17 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
     bufItemsNum = (workSize<<4)*blocksNum;
     
     {
+        double devMemReqs = 0.0;
+        if (useInputAndOutput!=0)
+            devMemReqs = (bufItemsNum<<4)/(1048576.0);
+        else
+            devMemReqs = (bufItemsNum<<3)/(1048576.0);
+        
         std::lock_guard<std::mutex> l(stdOutputMutex);
         std::cout << "Preparing StressTester for\n  " <<
                 "#" << id << " " << platformName << ":" << deviceName <<
                 "\n    SetUp: workSize=" << workSize <<
-                ", memory=" << (bufItemsNum<<4)/(1048576.0) << " MB"
+                ", memory=" << devMemReqs << " MB"
                 ", workFactor=" << workFactor <<
                 ", computeUnits=" << maxComputeUnits <<
                 ", groupSize=" << groupSize << std::endl;
@@ -390,11 +397,11 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
     clCmdQueue2 = cl::CommandQueue(clContext, clDevice);
     
     clBuffer1 = cl::Buffer(clContext, CL_MEM_READ_WRITE, bufItemsNum<<2);
-    clBuffer2 = cl::Buffer(clContext, CL_MEM_READ_WRITE, bufItemsNum<<2);
+    if (useInputAndOutput!=0)
+        clBuffer2 = cl::Buffer(clContext, CL_MEM_READ_WRITE, bufItemsNum<<2);
     clBuffer3 = cl::Buffer(clContext, CL_MEM_READ_WRITE, bufItemsNum<<2);
-    clBuffer4 = cl::Buffer(clContext, CL_MEM_READ_WRITE, bufItemsNum<<2);
-    
-    
+    if (useInputAndOutput!=0)
+        clBuffer4 = cl::Buffer(clContext, CL_MEM_READ_WRITE, bufItemsNum<<2);
     
     initialValues = new float[bufItemsNum];
     toCompare = new float[bufItemsNum];
@@ -432,17 +439,26 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
         clKernel.setArg(7, examplePoly[4]);
     }
     /* generate values to compare */
+    if (useInputAndOutput == 0)
+    {
+        clKernel.setArg(1, clBuffer1);
+        clKernel.setArg(2, clBuffer1);
+    }
+    
     for (cxuint i = 0; i < passItersNum; i++)
     {
-        if ((i&1) == 0)
+        if (useInputAndOutput != 0)
         {
-            clKernel.setArg(1, clBuffer1);
-            clKernel.setArg(2, clBuffer2);
-        }
-        else
-        {
-            clKernel.setArg(1, clBuffer2);
-            clKernel.setArg(2, clBuffer1);
+            if ((i&1) == 0)
+            {
+                clKernel.setArg(1, clBuffer1);
+                clKernel.setArg(2, clBuffer2);
+            }
+            else
+            {
+                clKernel.setArg(1, clBuffer2);
+                clKernel.setArg(2, clBuffer1);
+            }
         }
         cl::Event clEvent;
         clCmdQueue1.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
@@ -459,7 +475,7 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
     }
     
     // get results
-    if ((passItersNum&1) == 0)
+    if (useInputAndOutput == 0 || (passItersNum&1) == 0)
         clCmdQueue1.enqueueReadBuffer(clBuffer1, CL_TRUE, size_t(0), bufItemsNum<<2,
                     toCompare);
     else //
@@ -519,7 +535,11 @@ void GPUStressTester::calibrateKernel()
             
             clKernel.setArg(0, cl_uint(workSize));
             clKernel.setArg(1, clBuffer1);
-            clKernel.setArg(2, clBuffer2);
+            if (useInputAndOutput != 0)
+                clKernel.setArg(2, clBuffer2);
+            else
+                clKernel.setArg(2, clBuffer1);
+            
             if (usePolyWalker)
             {
                 clKernel.setArg(3, examplePoly[0]);
@@ -672,17 +692,26 @@ try
         clCmdQueue2.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0), bufItemsNum<<2,
                 initialValues);
         /* run execution 1 */
+        if (useInputAndOutput == 0)
+        {
+            clKernel.setArg(1, clBuffer1);
+            clKernel.setArg(2, clBuffer1);
+        }
+        
         for (cxuint i = 0; i < passItersNum; i++)
         {
-            if ((i&1) == 0)
+            if (useInputAndOutput != 0)
             {
-                clKernel.setArg(1, clBuffer1);
-                clKernel.setArg(2, clBuffer2);
-            }
-            else
-            {
-                clKernel.setArg(1, clBuffer2);
-                clKernel.setArg(2, clBuffer1);
+                if ((i&1) == 0)
+                {
+                    clKernel.setArg(1, clBuffer1);
+                    clKernel.setArg(2, clBuffer2);
+                }
+                else
+                {
+                    clKernel.setArg(1, clBuffer2);
+                    clKernel.setArg(2, clBuffer1);
+                }
             }
             clCmdQueue1.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
                     cl::NDRange(workSize), cl::NDRange(groupSize), NULL, &exec1Events[i]);
@@ -706,7 +735,7 @@ try
                 exec2Events[i] = cl::Event(); // release event
             }
             // get results
-            if ((passItersNum&1) == 0)
+            if (useInputAndOutput == 0 || (passItersNum&1) == 0)
                 clCmdQueue2.enqueueReadBuffer(clBuffer3, CL_TRUE, size_t(0), bufItemsNum<<2,
                             results);
             else //
@@ -722,17 +751,26 @@ try
         clCmdQueue2.enqueueWriteBuffer(clBuffer3, CL_TRUE, size_t(0), bufItemsNum<<2,
                 initialValues);
         /* run execution 2 */
+        if (useInputAndOutput == 0)
+        {
+            clKernel.setArg(1, clBuffer3);
+            clKernel.setArg(2, clBuffer3);
+        }
+        
         for (cxuint i = 0; i < passItersNum; i++)
         {
-            if ((i&1) == 0)
+            if (useInputAndOutput != 0)
             {
-                clKernel.setArg(1, clBuffer3);
-                clKernel.setArg(2, clBuffer4);
-            }
-            else
-            {
-                clKernel.setArg(1, clBuffer4);
-                clKernel.setArg(2, clBuffer3);
+                if ((i&1) == 0)
+                {
+                    clKernel.setArg(1, clBuffer3);
+                    clKernel.setArg(2, clBuffer4);
+                }
+                else
+                {
+                    clKernel.setArg(1, clBuffer4);
+                    clKernel.setArg(2, clBuffer3);
+                }
             }
             clCmdQueue1.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
                     cl::NDRange(workSize), cl::NDRange(groupSize), NULL, &exec2Events[i]);
@@ -756,7 +794,7 @@ try
                 exec1Events[i] = cl::Event(); // release event
             }
             // get results
-            if ((passItersNum&1) == 0)
+            if (useInputAndOutput == 0 || (passItersNum&1) == 0)
                 clCmdQueue2.enqueueReadBuffer(clBuffer1, CL_TRUE, size_t(0), bufItemsNum<<2,
                             results);
             else //

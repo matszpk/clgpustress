@@ -38,6 +38,8 @@ in other place than /opt/AMDAPP you must change AMDAPP variable in Makefile file
 ### Memory requirements
 
 Program prints size of memory required in GPU (device) memory.
+Option '-I' choose standard method with decoupled input and output which requires
+double size of memory on device.
 Program needs also host memory: 192*workSize bytes for buffers.
 
 ### Usage

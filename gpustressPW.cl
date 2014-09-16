@@ -24,8 +24,8 @@ static inline float4 polyeval4d(float p0, float p1, float p2, float p3, float p4
     return mad(x, mad(x, mad(x, mad(x, p4, p3), p2), p1), p0);
 }
 
-kernel void gpuStress(uint n, const global float4* restrict input,
-            global float4* restrict output, float p0, float p1, float p2, float p3, float p4)
+kernel void gpuStress(uint n, const global float4* input,
+            global float4* output, float p0, float p1, float p2, float p3, float p4)
 {
     size_t gid = get_global_id(0);
     
