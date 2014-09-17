@@ -49,7 +49,7 @@ Program needs also host memory: 192 * blocksNum * workSize bytes for buffers.
 
 - run stress: ./gpustress -G -W512 -S32 -B2 -T0
 
-If option '-j' is not specified then program automatically calibrates test for device for performance and memory bendwidth.
+If option '-j' is not specified then program automatically calibrates test for device for performance and memory bandwidth.
 
 ## supported tests
 
