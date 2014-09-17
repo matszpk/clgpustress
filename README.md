@@ -17,12 +17,12 @@ YOU ARE USING THIS SOFTWARE ONLY ON YOUR OWN RISK!
 
 ### Program behaviour
 
-By default program find ALL GPU devices and run stress for them. You can choose particular
-device with using '-L' option. By default program calibrate test for performance and memory
+By default program finds ALL GPU devices and runs stress for them. You can choose particular
+device with using '-L' option. By default program calibrates test for performance and memory
 bandwidth. While running tests program checks result with previously computed results on the device.
 If results mismatches program terminates stress test for failed device.
 By default program terminates stress testing when any device fails. You can adds '-f' option
-to force continue stress testing of other devices.
+to force continue stress testing for other devices.
 
 ### Software requirements:
 
