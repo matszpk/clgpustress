@@ -17,8 +17,11 @@ LIBS = -lm -pthread -lpopt -lOpenCL
 
 all: gpustress
 
-gpustress: gpustress.cpp
+gpustress: gpustress.o clkernels.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCDIRS) -o $@ $^ $(LIBDIRS) $(LIBS)
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCDIRS) -c -o $@ $^
 
 clean:
 	rm -f *.o gpustress

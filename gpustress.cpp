@@ -62,154 +62,9 @@ public:
     }
 };
 
-static const char* clKernel1Source =
-"#pragma OPENCL FP_CONTRACT OFF\n"
-"\n"
-"kernel void gpuStress(uint n, const global float4* input, global float4* output)\n"
-"{\n"
-"    local float localData[GROUPSIZE];\n"
-"    size_t gid = get_global_id(0);\n"
-"    size_t lid = get_local_id(0);\n"
-"    \n"
-"    for (uint i = 0; i < BLOCKSNUM; i++)\n"
-"    {\n"
-"        float factor;\n"
-"        float4 tmpValue1, tmpValue2, tmpValue3, tmpValue4;\n"
-"        float4 tmp2Value1, tmp2Value2, tmp2Value3, tmp2Value4;\n"
-"        \n"
-"        float4 inValue1 = input[gid*4];\n"
-"        float4 inValue2 = input[gid*4+1];\n"
-"        float4 inValue3 = input[gid*4+2];\n"
-"        float4 inValue4 = input[gid*4+3];\n"
-"        \n"
-"        for (uint j = 0; j < KITERSNUM; j++)\n"
-"        {\n"
-"            tmpValue1 = mad(inValue1, -inValue2, inValue3);\n"
-"            tmpValue2 = mad(inValue2, inValue3, inValue4);\n"
-"            tmpValue3 = mad(inValue3, -inValue4, inValue1);\n"
-"            tmpValue4 = mad(inValue4, inValue1, inValue2);\n"
-"            \n"
-"            localData[lid] = (tmpValue4.x+tmpValue4.y+tmpValue4.z+tmpValue4.w)*0.25f;\n"
-"            barrier(CLK_LOCAL_MEM_FENCE);\n"
-"            factor = localData[(lid+7)%GROUPSIZE];\n"
-"            barrier(CLK_LOCAL_MEM_FENCE);\n"
-"            \n"
-"            tmpValue1 += factor;\n"
-"            tmp2Value1 = mad(tmpValue1, tmpValue2, tmpValue3);\n"
-"            tmp2Value2 = mad(tmpValue2, tmpValue3, tmpValue4);\n"
-"            tmp2Value3 = mad(tmpValue3, tmpValue4, tmpValue1);\n"
-"            tmp2Value4 = mad(tmpValue4, tmpValue1, tmpValue2);\n"
-"            \n"
-"            localData[lid] = (tmpValue2.x+tmpValue2.y+tmpValue2.z+tmpValue2.w)*0.25f;\n"
-"            barrier(CLK_LOCAL_MEM_FENCE);\n"
-"            factor = localData[(lid+55)%GROUPSIZE];\n"
-"            barrier(CLK_LOCAL_MEM_FENCE);\n"
-"            \n"
-"            tmp2Value1 += factor;\n"
-"            tmpValue1 = mad(tmp2Value1, -tmp2Value2, tmp2Value3);\n"
-"            tmpValue2 = mad(tmp2Value2, tmp2Value3, -tmp2Value4);\n"
-"            tmpValue3 = mad(tmp2Value3, -tmp2Value4, tmp2Value1);\n"
-"            tmpValue4 = mad(tmp2Value4, tmp2Value1, -tmp2Value2);\n"
-"            \n"
-"            inValue1 = as_float4((as_uint4(tmpValue1) & (0xc7ffffffU)) | 0x40000000U);\n"
-"            inValue2 = as_float4((as_uint4(tmpValue2) & (0xc7ffffffU)) | 0x40000000U);\n"
-"            inValue3 = as_float4((as_uint4(tmpValue3) & (0xc7ffffffU)) | 0x40000000U);\n"
-"            inValue4 = as_float4((as_uint4(tmpValue4) & (0xc7ffffffU)) | 0x40000000U);\n"
-"        }\n"
-"        \n"
-"        output[gid*4] = inValue1;\n"
-"        output[gid*4+1] = inValue2;\n"
-"        output[gid*4+2] = inValue3;\n"
-"        output[gid*4+3] = inValue4;\n"
-"        \n"
-"        gid += get_global_size(0);\n"
-"    }\n"
-"}\n";
-
-static const char* clKernel2Source =
-"#pragma OPENCL FP_CONTRACT OFF\n"
-"\n"
-"kernel void gpuStress(uint n, const global float4* input, global float4* output)\n"
-"{\n"
-"    size_t gid = get_global_id(0);\n"
-"    size_t lid = get_local_id(0);\n"
-"    \n"
-"    for (uint i = 0; i < BLOCKSNUM; i++)\n"
-"    {\n"
-"        float4 tmpValue1, tmpValue2, tmpValue3, tmpValue4;\n"
-"        float4 tmp2Value1, tmp2Value2, tmp2Value3, tmp2Value4;\n"
-"        \n"
-"        float4 inValue1 = input[gid*4];\n"
-"        float4 inValue2 = input[gid*4+1];\n"
-"        float4 inValue3 = input[gid*4+2];\n"
-"        float4 inValue4 = input[gid*4+3];\n"
-"        \n"
-"        for (uint j = 0; j < KITERSNUM; j++)\n"
-"        {\n"
-"            tmpValue1 = mad(inValue1, -inValue2, inValue3);\n"
-"            tmpValue2 = mad(inValue2, inValue3, inValue4);\n"
-"            tmpValue3 = mad(inValue3, -inValue4, inValue1);\n"
-"            tmpValue4 = mad(inValue4, inValue1, inValue2);\n"
-"            \n"
-"            tmp2Value1 = mad(tmpValue1, tmpValue2, tmpValue3);\n"
-"            tmp2Value2 = mad(tmpValue2, tmpValue3, tmpValue4);\n"
-"            tmp2Value3 = mad(tmpValue3, tmpValue4, tmpValue1);\n"
-"            tmp2Value4 = mad(tmpValue4, tmpValue1, tmpValue2);\n"
-"            \n"
-"            tmpValue1 = mad(tmp2Value1, -tmp2Value2, tmp2Value3);\n"
-"            tmpValue2 = mad(tmp2Value2, tmp2Value3, -tmp2Value4);\n"
-"            tmpValue3 = mad(tmp2Value3, -tmp2Value4, tmp2Value1);\n"
-"            tmpValue4 = mad(tmp2Value4, tmp2Value1, -tmp2Value2);\n"
-"            \n"
-"            inValue1 = as_float4((as_uint4(tmpValue1) & (0xc7ffffffU)) | 0x40000000U);\n"
-"            inValue2 = as_float4((as_uint4(tmpValue2) & (0xc7ffffffU)) | 0x40000000U);\n"
-"            inValue3 = as_float4((as_uint4(tmpValue3) & (0xc7ffffffU)) | 0x40000000U);\n"
-"            inValue4 = as_float4((as_uint4(tmpValue4) & (0xc7ffffffU)) | 0x40000000U);\n"
-"        }\n"
-"        \n"
-"        output[gid*4] = inValue1;\n"
-"        output[gid*4+1] = inValue2;\n"
-"        output[gid*4+2] = inValue3;\n"
-"        output[gid*4+3] = inValue4;\n"
-"        gid += get_global_size(0);\n"
-"    }\n"
-"}\n";
-
-static const char* clKernelPWSource =
-"#pragma OPENCL FP_CONTRACT OFF\n"
-"\n"
-"static inline float4 polyeval4d(float p0, float p1, float p2, float p3, float p4, float4 x)\n"
-"{\n"
-"    return mad(x, mad(x, mad(x, mad(x, p4, p3), p2), p1), p0);\n"
-"}\n"
-"\n"
-"kernel void gpuStress(uint n, const global float4* input,\n"
-"            global float4* output, float p0, float p1, float p2, float p3, float p4)\n"
-"{\n"
-"    size_t gid = get_global_id(0);\n"
-"    \n"
-"    for (uint i = 0; i < BLOCKSNUM; i++)\n"
-"    {\n"
-"        float4 x1 = input[gid*4];\n"
-"        float4 x2 = input[gid*4+1];\n"
-"        float4 x3 = input[gid*4+2];\n"
-"        float4 x4 = input[gid*4+3];\n"
-"        for (uint j = 0; j < KITERSNUM; j++)\n"
-"        {\n"
-"            x1 = polyeval4d(p0, p1, p2, p3, p4, x1);\n"
-"            x2 = polyeval4d(p0, p1, p2, p3, p4, x2);\n"
-"            x3 = polyeval4d(p0, p1, p2, p3, p4, x3);\n"
-"            x4 = polyeval4d(p0, p1, p2, p3, p4, x4);\n"
-"        }\n"
-"        \n"
-"        output[gid*4] = x1;\n"
-"        output[gid*4+1] = x2;\n"
-"        output[gid*4+2] = x3;\n"
-"        output[gid*4+3] = x4;\n"
-"        \n"
-"        gid += get_global_size(0);\n"
-"    }\n"
-"}\n";
+extern const char* clKernel1Source;
+extern const char* clKernel2Source;
+extern const char* clKernelPWSource;
 
 static int useCPUs = 0;
 static int useGPUs = 0;
@@ -332,17 +187,11 @@ std::vector<std::pair<cl::Platform, cl::Device> > getChoosenCLDevicesFromList(co
     cl::Platform::get(&clPlatforms);
     
     std::set<std::pair<cxuint,cxuint> > deviceIdsSet;
-    
-    std::string inStr = std::string(str);
-    for (char& c: inStr)
-        c = (c==',')?' ':c;
-    std::istringstream iss(inStr);
-    while (!iss.eof())
+    const char* p = str;
+    while (*p != 0)
     {
-        std::string ss;
-        iss >> ss;
         cxuint platformId, deviceId;
-        if (sscanf(ss.c_str(), "%u:%u", &platformId, &deviceId) != 2)
+        if (sscanf(p, "%u:%u", &platformId, &deviceId) != 2)
             throw MyException("Cant parse device list");
         
         if (platformId >= clPlatforms.size())
@@ -359,6 +208,9 @@ std::vector<std::pair<cl::Platform, cl::Device> > getChoosenCLDevicesFromList(co
         
         cl::Device clDevice = clDevices[deviceId];
         outDevices.push_back(std::make_pair(clPlatform, clDevice));
+        
+        while (*p != 0 && *p != ',') p++;
+        if (*p == ',') p++; // next elem in list
     }
     
     return outDevices;
