@@ -65,10 +65,10 @@ kernel void gpuStress(uint n, const global float4* input, global float4* output)
             tmpValue3 = mad(tmp2Value3, -tmp2Value4, tmp2Value1);
             tmpValue4 = mad(tmp2Value4, tmp2Value1, -tmp2Value2);
             
-            inValue1 = as_float4((as_int4(tmpValue1) & (0xc7ffffffU)) | 0x40000000U);
-            inValue2 = as_float4((as_int4(tmpValue2) & (0xc7ffffffU)) | 0x40000000U);
-            inValue3 = as_float4((as_int4(tmpValue3) & (0xc7ffffffU)) | 0x40000000U);
-            inValue4 = as_float4((as_int4(tmpValue4) & (0xc7ffffffU)) | 0x40000000U);
+            inValue1 = as_float4((as_uint4(tmpValue1) & (0xc7ffffffU)) | 0x40000000U);
+            inValue2 = as_float4((as_uint4(tmpValue2) & (0xc7ffffffU)) | 0x40000000U);
+            inValue3 = as_float4((as_uint4(tmpValue3) & (0xc7ffffffU)) | 0x40000000U);
+            inValue4 = as_float4((as_uint4(tmpValue4) & (0xc7ffffffU)) | 0x40000000U);
         }
         
         output[gid*4] = inValue1;
