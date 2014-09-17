@@ -8,11 +8,21 @@ Heavy OpenCL GPU stress tester
 THIS PROGRAM IS VERY DANGEROUS FOR GRAPHICS CARD AND CAN OVERHEAT OR DAMAGE YOUR GRAPHICS CARD! PLEASE USE CAREFULLY
 THIS PROGRAM. I RECOMMEND TO RUN THIS PROGRAM ON ALL STOCK PARAMETERS (CLOCKS, VOLTAGES, ESPECIALLY GPU MEMORY CLOCK).
 
-THIS PROGRAM IS INFLUENCED BY PRIMEGRID GENEFER AND ALSO IS VERY SENSITIVE FOR ANY OVERCLOCKING, BUT MUCH BETTER LOADS GPU CORE. MOREOVER MUCH BETTER BURNS GRAPHICS CARD THAN FURMARK!
+THIS PROGRAM IS INFLUENCED BY PRIMEGRID GENEFER AND ALSO IS VERY SENSITIVE FOR ANY OVERCLOCKING,
+BUT MUCH BETTER LOADS GPU CORE. MOREOVER MUCH BETTER BURNS GRAPHICS CARD THAN FURMARK!
 
 THIS PROGRAM WAS TESTED ONLY ON RADEON HD 7850 AND CAN BEHAVES INCORRECTLY ON OTHER GRAPHICS CARDS.
 
 YOU ARE USING THIS SOFTWARE ONLY ON YOUR OWN RISK!
+
+### Program behaviour
+
+By default program find ALL GPU devices and run stress for them. You can choose particular
+device with using '-L' option. By default program calibrate test for performance and memory
+bandwidth. While running tests program checks result with previously computed results on the device.
+If results mismatches program terminates stress test for failed device.
+By default program terminates stress testing when any device fails. You can adds '-f' option
+to force continue stress testing of other devices.
 
 ### Software requirements:
 

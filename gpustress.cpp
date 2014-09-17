@@ -33,6 +33,7 @@
 #include <mutex>
 #include <random>
 #include <chrono>
+#include <atomic>
 #include <sys/stat.h>
 #include <popt.h>
 #include <CL/cl.hpp>
@@ -80,6 +81,7 @@ static bool useAllPlatforms = false;
 static int listDevices = 0;
 static const char* devicesListString = nullptr;
 static int dontWait = 0;
+static int exitIfAllFails = 0;
 
 static const char* programName = nullptr;
 static bool usePolyWalker = false;
@@ -89,6 +91,8 @@ static std::mutex stdOutputMutex;
 
 static size_t clKernelSourceSize = 0;
 static const char* clKernelSource = nullptr;
+
+static std::atomic<bool> stopAllStressTesters(false);
 
 static const poptOption optionsTable[] =
 {
@@ -112,6 +116,8 @@ static const poptOption optionsTable[] =
         "ITERATION" },
     { "kiters", 'j', POPT_ARG_INT, &choosenKitersNum, 'j', "kitersNum", "ITERATION" },
     { "dontWait", 'w', POPT_ARG_VAL, &dontWait, 'w', "dont wait few seconds", nullptr },
+    { "exitIfAllFails", 'f', POPT_ARG_VAL, &exitIfAllFails, 'f',
+        "exit only if all devices fails at computation", nullptr },
     POPT_AUTOHELP
     { nullptr, 0, 0, nullptr, 0 }
 };
@@ -673,6 +679,8 @@ void GPUStressTester::throwFailedComputations(cxuint passNum)
              "FAILED COMPUTATIONS!!!! PASS #%u, Elapsed time: %02u:%02u:%02u.%03u",
              passNum, (startMillis/3600000), (startMillis/60000)%60, (startMillis/1000)%60,
              (startMillis%1000));
+    if (!exitIfAllFails)
+        stopAllStressTesters.store(true);
     throw MyException(strBuf);
 }
 
@@ -701,6 +709,13 @@ try
     startTime = lastTime = std::chrono::high_resolution_clock::now();
     
     do {
+        if (stopAllStressTesters.load())
+        {
+            std::lock_guard<std::mutex> l(stdOutputMutex);
+            std::cout << "Exiting, because some device failed." << std::endl;
+            break;
+        }
+        
         clCmdQueue2.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0), bufItemsNum<<2,
                 initialValues);
         /* run execution 1 */
@@ -758,6 +773,13 @@ try
             
             printStatus(pass2Num);
             pass2Num += 2;
+        }
+        
+        if (stopAllStressTesters.load())
+        {
+            std::lock_guard<std::mutex> l(stdOutputMutex);
+            std::cout << "Exiting, because some device failed." << std::endl;
+            break;
         }
         
         clCmdQueue2.enqueueWriteBuffer(clBuffer3, CL_TRUE, size_t(0), bufItemsNum<<2,
@@ -959,11 +981,14 @@ int main(int argc, const char** argv)
             throw MyException("OpenCL devices not found!");
         
         std::cout <<
-            "\nWARNING: THIS PROGRAM CAN OVERHEAT YOUR GRAPHICS CARD FASTER (AND BETTER) THAN "
-            "ANY FURMARK STRESS.\nPLEASE USE THIS PROGRAM VERY CAREFULLY!!!\n"
+            "\nWARNING: THIS PROGRAM CAN OVERHEAT OR DAMAGE YOUR GRAPHICS CARD FASTER (AND BETTER)\n"
+            "THAN ANY FURMARK STRESS. PLEASE USE THIS PROGRAM VERY CAREFULLY!!!\n"
             "RECOMMEND TO RUN THIS PROGRAM ON STOCK PARAMETERS "
-            "(CLOCKS, VOLTAGES, ESPECIALLY MEMORY CLOCK).\n"
+            "(CLOCKS, VOLTAGES,\nESPECIALLY MEMORY CLOCK).\n"
             "TO TERMINATE THIS PROGRAM PLEASE USE STANDARD CTRL-C.\n" << std::endl;
+        if (exitIfAllFails)
+            std::cout << "Program exits only when all devices fails.\n"
+                "Please trace output to find failed device and react!" << std::endl;
         if (dontWait==0)
             std::this_thread::sleep_for(std::chrono::milliseconds(8000));
         
@@ -1035,13 +1060,14 @@ int main(int argc, const char** argv)
             catch(const std::exception& ex)
             {
                 std::lock_guard<std::mutex> l(stdOutputMutex);
-                std::cerr << "Failed to join GPU stress #" << i << "!!!" << std::endl;
+                std::cerr << "Failed join for stress thread #" << i << "!!!" << std::endl;
                 retVal = 1;
             }
             delete testerThreads[i];
             testerThreads[i] = nullptr;
             std::lock_guard<std::mutex> l(stdOutputMutex);
-            std::cout << "Finished #" << i << std::endl;
+            if (!gpuStressTesters[i]->isFailed())
+                std::cout << "Finished #" << i << std::endl;
         }
     for (size_t i = 0; i < gpuStressTesters.size(); i++)
     {
