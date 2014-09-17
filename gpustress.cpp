@@ -988,7 +988,7 @@ int main(int argc, const char** argv)
             "TO TERMINATE THIS PROGRAM PLEASE USE STANDARD CTRL-C.\n" << std::endl;
         if (exitIfAllFails)
             std::cout << "Program exits only when all devices fails.\n"
-                "Please trace output to find failed device and react!" << std::endl;
+                "Please trace output to find failed device and react!\n" << std::endl;
         if (dontWait==0)
             std::this_thread::sleep_for(std::chrono::milliseconds(8000));
         
