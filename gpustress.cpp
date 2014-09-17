@@ -287,6 +287,7 @@ private:
     
     void printBuildLog();
     void printStatus(cxuint passNum);
+    void throwFailedComputations(cxuint passNum);
     
     void buildKernel(cxuint kitersNum, cxuint blocksNum, bool alwaysPrintBuildLog);
     void calibrateKernel();
@@ -634,7 +635,7 @@ void GPUStressTester::printStatus(cxuint passNum)
 {
     if ((passNum%10) != 0)
         return;
-    time_point currentTime = std::chrono::high_resolution_clock::now();
+    const time_point currentTime = std::chrono::high_resolution_clock::now();
     const int64_t nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(
                 currentTime-lastTime).count();
     lastTime = currentTime;
@@ -660,6 +661,19 @@ void GPUStressTester::printStatus(cxuint passNum)
             " was passed PASS #" << passNum << "\n"
             "Approx. bandwidth: " << bandwidth << " GB/s, "
             "Approx. perf: " << perf << " GFLOPS, elapsed: " << timeStrBuf << std::endl;
+}
+
+void GPUStressTester::throwFailedComputations(cxuint passNum)
+{
+    const time_point currentTime = std::chrono::high_resolution_clock::now();
+    const int32_t startMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
+                currentTime-startTime).count();
+    char strBuf[128];
+    snprintf(strBuf, 128,
+             "FAILED COMPUTATIONS!!!! PASS #%u, Elapsed time: %02u:%02u:%02u.%03u",
+             passNum, (startMillis/3600000), (startMillis/60000)%60, (startMillis/1000)%60,
+             (startMillis%1000));
+    throw MyException(strBuf);
 }
 
 void GPUStressTester::runTest()
@@ -740,7 +754,7 @@ try
                 clCmdQueue2.enqueueReadBuffer(clBuffer4, CL_TRUE, size_t(0), bufItemsNum<<2,
                             results);
             if (::memcmp(toCompare, results, bufItemsNum<<2))
-                throw MyException("FAILED COMPUTATIONS!!!!");
+                throwFailedComputations(pass2Num);
             
             printStatus(pass2Num);
             pass2Num += 2;
@@ -799,7 +813,7 @@ try
                 clCmdQueue2.enqueueReadBuffer(clBuffer2, CL_TRUE, size_t(0), bufItemsNum<<2,
                             results);
             if (::memcmp(toCompare, results, bufItemsNum<<2))
-                throw MyException("FAILED COMPUTATIONS!!!!");
+                throwFailedComputations(pass1Num);
             printStatus(pass1Num);
             pass1Num += 2;
         }
@@ -841,7 +855,7 @@ catch(const std::exception& ex)
     try
     {
         std::ostringstream oss;
-        oss << "Standard exception happened: " << ex.what();
+        oss << "Exception happened: " << ex.what();
         oss.flush();
         failMessage = oss.str();
         std::lock_guard<std::mutex> l(stdOutputMutex);
@@ -857,7 +871,7 @@ catch(...)
     failed = true;
     try
     {
-        failMessage = "Standard exception happened";
+        failMessage = "Unknown exception happened";
         std::lock_guard<std::mutex> l(stdOutputMutex);
         std::cerr << "Failed StressTester for\n  " <<
                 "#" << id << " " << platformName << ":" << deviceName << ":\n    " <<
@@ -1009,7 +1023,7 @@ int main(int argc, const char** argv)
         if (programName != nullptr)
             delete[] clKernelSource;
         std::lock_guard<std::mutex> l(stdOutputMutex);
-        std::cerr << "Standard exception happened: " << ex.what() << std::endl;
+        std::cerr << "Exception happened: " << ex.what() << std::endl;
         retVal = 1;
     }
     // clean up
