@@ -22,7 +22,6 @@
 #include <iostream>
 #include <algorithm>
 #include <cstdio>
-#include <fstream>
 #include <string>
 #include <cstring>
 #include <vector>
@@ -33,7 +32,6 @@
 #include <random>
 #include <chrono>
 #include <atomic>
-#include <sys/stat.h>
 #include <popt.h>
 #include <CL/cl.hpp>
 
@@ -69,36 +67,33 @@ extern const char* clKernelPWSource;
 static int useCPUs = 0;
 static int useGPUs = 0;
 static int useAccelerators = 0;
-static int workFactor = 256;
-static int blocksNum = 2;
-static int passItersNum = 32;
-static int choosenKitersNum = 0;
-static int useInputAndOutput = 0;
 static int useAMDPlatform = 0;
 static int useNVIDIAPlatform = 0;
 static int useIntelPlatform = 0;
 static bool useAllPlatforms = false;
-static int listDevices = 0;
+static int listAllDevices = 0;
+static int listChoosenDevices = 0;
 static const char* devicesListString = nullptr;
+static const char* builtinKernelsString = nullptr;
+static const char* inputAndOutputsString = nullptr;
+static const char* workFactorsString = nullptr;
+static const char* blocksNumsString = nullptr;
+static const char* passItersNumsString = nullptr;
+static const char* kitersNumsString = nullptr;
 static int dontWait = 0;
 static int exitIfAllFails = 0;
 
-static const char* programName = nullptr;
-static bool usePolyWalker = false;
-static int builtinKernel = 0; // default
-
 static std::mutex stdOutputMutex;
-
-static size_t clKernelSourceSize = 0;
-static const char* clKernelSource = nullptr;
 
 static std::atomic<bool> stopAllStressTesters(false);
 
 static const poptOption optionsTable[] =
 {
-    { "listDevices", 'l', POPT_ARG_VAL, &listDevices, 'l', "list OpenCL devices", nullptr },
+    { "listDevices", 'l', POPT_ARG_VAL, &listAllDevices, 'l', "list all OpenCL devices", nullptr },
     { "devicesList", 'L', POPT_ARG_STRING, &devicesListString, 'L',
         "specify list of devices in form: 'platformId:deviceId,....'", "DEVICELIST" },
+    { "choosenDevices", 'c', POPT_ARG_VAL, &listChoosenDevices, 'c',
+        "list choosen OpenCL devices", nullptr },
     { "useCPUs", 'C', POPT_ARG_VAL, &useCPUs, 'C', "use all CPU devices", nullptr },
     { "useGPUs", 'G', POPT_ARG_VAL, &useGPUs, 'G', "use all GPU devices", nullptr },
     { "useAccs", 'a', POPT_ARG_VAL, &useAccelerators, 'a',
@@ -107,18 +102,16 @@ static const poptOption optionsTable[] =
     { "useNVIDIA", 'N', POPT_ARG_VAL, &useNVIDIAPlatform, 'N',
         "use NVIDIA platform", nullptr },
     { "useIntel", 'E', POPT_ARG_VAL, &useIntelPlatform, 'L', "use Intel platform", nullptr },
-    { "program", 'P', POPT_ARG_STRING, &programName, 'P',
-        "choose OpenCL program name", "NAME" },
-    { "builtin", 'T', POPT_ARG_INT, &builtinKernel, 'T',
-        "choose OpenCL builtin kernel", "[0-2]" },
-    { "inAndOut", 'I', POPT_ARG_VAL, &useInputAndOutput, 'I',
-      "use input and output buffers (doubles memory reqs.)" },
-    { "workFactor", 'W', POPT_ARG_INT, &workFactor, 'W',
-        "set workSize=factor*compUnits*grpSize", "FACTOR" },
-    { "blocksNum", 'B', POPT_ARG_INT, &blocksNum, 'B', "blocks number", "BLOCKS" },
-    { "passIters", 'S', POPT_ARG_INT, &passItersNum, 'S', "pass iterations num",
-        "ITERATION" },
-    { "kiters", 'j', POPT_ARG_INT, &choosenKitersNum, 'j', "kitersNum", "ITERATION" },
+    { "builtin", 'T', POPT_ARG_STRING, &builtinKernelsString, 'T',
+        "choose OpenCL builtin kernel", "NUMLIST [0-2]" },
+    { "inAndOut", 'I', POPT_ARG_STRING, &inputAndOutputsString, 'I',
+      "use input and output buffers (doubles memory reqs.)", "BOOLLIST" },
+    { "workFactor", 'W', POPT_ARG_STRING, &workFactorsString, 'W',
+        "set workSize=factor*compUnits*grpSize", "FACTORLIST" },
+    { "blocksNum", 'B', POPT_ARG_STRING, &blocksNumsString, 'B', "blocks number", "BLOCKSLIST" },
+    { "passIters", 'S', POPT_ARG_STRING, &passItersNumsString, 'S', "pass iterations num",
+        "ITERATIONSLIST" },
+    { "kitersNum", 'j', POPT_ARG_STRING, &kitersNumsString, 'j', "kitersNum", "ITERATIONSLIST" },
     { "dontWait", 'w', POPT_ARG_VAL, &dontWait, 'w', "dont wait few seconds", nullptr },
     { "exitIfAllFails", 'f', POPT_ARG_VAL, &exitIfAllFails, 'f',
         "exit only if all devices fails at computation", nullptr },
@@ -126,38 +119,45 @@ static const poptOption optionsTable[] =
     { nullptr, 0, 0, nullptr, 0 }
 };
 
-static char* loadFromFile(const char* filename, size_t& size)
+static std::vector<cxuint> parseCmdUIntList(const char* str, const char* name)
 {
-    struct stat stbuf;
-    if (stat(filename, &stbuf)<0)
-        throw MyException("No permissions or file doesnt exists");
-    if (!S_ISREG(stbuf.st_mode))
-        throw MyException("This is not regular file");
+    std::vector<cxuint> outVector;
+    if (str == nullptr)
+        return outVector;
     
-    std::ifstream ifs(filename, std::ios::binary);
-    if (!ifs)
-        throw MyException("Cant open file");
-    ifs.exceptions(std::ifstream::badbit | std::ifstream::failbit);
-    ifs.seekg(0, std::ios::end); // to end of file
-    size = ifs.tellg();
-    ifs.seekg(0, std::ios::beg);
-    char* buf = nullptr;
-    try
+    const char* p = str;
+    while (*p != 0)
     {
-        buf = new char[size];
-        ifs.read(buf, size);
-        if (ifs.gcount() != std::streamsize(size))
-            throw MyException("Cant read whole file");
+        cxuint val;
+        if (sscanf(p, "%u", &val) != 1)
+            throw MyException(std::string("Cant parse ")+name);
+        outVector.push_back(val);
+        
+        while (*p != 0 && *p != ',') p++;
+        if (*p == ',') p++; // next elem in list
     }
-    catch(...)
-    {
-        delete[] buf;
-        throw;
-    }
-    return buf;
+    return outVector;
 }
 
-std::vector<std::pair<cl::Platform, cl::Device> > getChoosenCLDevices()
+static std::vector<bool> parseCmdBoolList(const char* str, const char* name)
+{
+    std::vector<bool> outVector;
+    if (str == nullptr)
+        return outVector;
+    
+    for (const char* p = str; *p != 0; p++)
+    {
+        if (*p == 'Y' || *p == 'y' || *p == '1' || *p == 'T' || *p == 't' || *p == '+')
+            outVector.push_back(true);
+        else if (*p == 'N' || *p == 'n' || *p == '0' || *p == 'F' || *p == 'f' || *p == '-')
+            outVector.push_back(false);
+        else
+            throw MyException(std::string("Cant parse ")+name);
+    }
+    return outVector;
+}
+
+static std::vector<std::pair<cl::Platform, cl::Device> > getChoosenCLDevices()
 {
     std::vector<std::pair<cl::Platform, cl::Device> > outDevices;
     std::vector<cl::Platform> clPlatforms;
@@ -192,7 +192,8 @@ std::vector<std::pair<cl::Platform, cl::Device> > getChoosenCLDevices()
     return outDevices;
 }
 
-std::vector<std::pair<cl::Platform, cl::Device> > getChoosenCLDevicesFromList(const char* str)
+static std::vector<std::pair<cl::Platform, cl::Device> >
+getChoosenCLDevicesFromList(const char* str)
 {
     std::vector<std::pair<cl::Platform, cl::Device> > outDevices;
     std::vector<cl::Platform> clPlatforms;
@@ -255,8 +256,108 @@ static void listCLDevices()
     std::cout.flush();
 }
 
+static void listChoosenCLDevices(const std::vector<std::pair<cl::Platform, cl::Device> >& list)
+{
+    for (size_t i = 0; i < list.size(); i++)
+    {
+        const auto& elem = list[i];
+        std::string platformName;
+        elem.first.getInfo(CL_PLATFORM_NAME, &platformName);
+        std::string deviceName;
+        elem.second.getInfo(CL_DEVICE_NAME, &deviceName);
+        
+        std::cout << i << "  " << platformName << ":" << deviceName << "\n";
+    }
+    std::cout.flush();
+}
+
 static const float examplePoly[5] = 
 { 4.43859953e+05,   1.13454169e+00,  -4.50175916e-06, -1.43865531e-12,   4.42133541e-18 };
+
+struct GPUStressConfig
+{
+    cxuint passItersNum;
+    cxuint workFactor;
+    cxuint blocksNum;
+    cxuint kitersNum;
+    cxuint builtinKernel;
+    bool inputAndOutput;
+};
+
+static std::vector<GPUStressConfig> collectGPUStressConfigs(cxuint devicesNum,
+        const std::vector<cxuint>& passItersNumVec, const std::vector<cxuint>& workFactorVec,
+        const std::vector<cxuint>& blocksNumVec, const std::vector<cxuint>& kitersNumVec,
+        const std::vector<cxuint>& builtinKernelVec, const std::vector<bool>& inAndOutVec)
+{
+    if (passItersNumVec.size() > devicesNum)
+        throw MyException("PassItersNum list is too long");
+    if (workFactorVec.size() > devicesNum)
+        throw MyException("WorkFactor list is too long");
+    if (blocksNumVec.size() > devicesNum)
+        throw MyException("BlocksNum list is too long");
+    if (kitersNumVec.size() > devicesNum)
+        throw MyException("kitersNum list is too long");
+    if (builtinKernelVec.size() > devicesNum)
+        throw MyException("BuiltinKernel list is too long");
+    if (inAndOutVec.size() > devicesNum)
+        throw MyException("InputAndOutput list is too long");
+    
+    std::vector<GPUStressConfig> outConfigs(devicesNum);
+    
+    for (size_t i = 0; i < devicesNum; i++)
+    {
+        GPUStressConfig config;
+        if (!passItersNumVec.empty())
+            config.passItersNum = (passItersNumVec.size() > i) ? passItersNumVec[i] : 
+                    passItersNumVec.back();
+        else // default
+            config.passItersNum = 32;
+        
+        if (!workFactorVec.empty())
+            config.workFactor = (workFactorVec.size() > i) ? workFactorVec[i] : 
+                    workFactorVec.back();
+        else // default
+            config.workFactor = 256;
+        
+        if (!blocksNumVec.empty())
+            config.blocksNum = (blocksNumVec.size() > i) ? blocksNumVec[i] : 
+                    blocksNumVec.back();
+        else // default
+            config.blocksNum = 2;
+        
+        if (!kitersNumVec.empty())
+            config.kitersNum = (kitersNumVec.size() > i) ? kitersNumVec[i] : 
+                    kitersNumVec.back();
+        else // default
+            config.kitersNum = 0;
+        
+        if (!builtinKernelVec.empty())
+            config.builtinKernel = (builtinKernelVec.size() > i) ? builtinKernelVec[i] :
+                    builtinKernelVec.back();
+        else // default
+            config.builtinKernel = 0;
+        
+        if (!inAndOutVec.empty())
+            config.inputAndOutput = (inAndOutVec.size() > i) ? inAndOutVec[i] :
+                    inAndOutVec.back();
+        else // default
+            config.inputAndOutput = false;
+        
+        if (config.passItersNum == 0)
+            throw MyException("PassItersNum is zero");
+        if (config.blocksNum == 0 || config.blocksNum > 16)
+            throw MyException("BlocksNum is zero or out of range");
+        if (config.workFactor == 0)
+            throw MyException("WorkFactor is zero");
+        if (config.builtinKernel > 2)
+            throw MyException("BuiltinKernel out of range");
+        if (config.kitersNum > 30)
+            throw MyException("KitersNum out of range");
+        outConfigs[i] = config;
+    }
+    
+    return outConfigs;
+}
 
 class GPUStressTester
 {
@@ -278,15 +379,22 @@ private:
     cl::Buffer clBuffer1, clBuffer2;
     cl::Buffer clBuffer3, clBuffer4;
     
+    cxuint workFactor;
     cxuint blocksNum;
     cxuint passItersNum;
     cxuint kitersNum;
+    bool useInputAndOutput;
     
     size_t bufItemsNum;
     
     float* initialValues;
     float* toCompare;
     float* results;
+    
+    size_t clKernelSourceSize;
+    const char* clKernelSource;
+    
+    bool usePolyWalker;
     
     cl::Program clProgram;
     cl::Kernel clKernel;
@@ -307,7 +415,7 @@ private:
     void calibrateKernel();
 public:
     GPUStressTester(cxuint id, cl::Platform& clPlatform, cl::Device& clDevice,
-                    size_t workFactor, cxuint blocksNum, cxuint passItersNum);
+                    const GPUStressConfig& config);
     ~GPUStressTester();
     
     void runTest();
@@ -319,12 +427,15 @@ public:
 };
 
 GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Device& _clDevice,
-        size_t workFactor, cxuint _blocksNum, cxuint _passItersNum) :
-        id(_id), clDevice(_clDevice), blocksNum(_blocksNum), passItersNum(_passItersNum),
+        const GPUStressConfig& config) :
+        id(_id), clDevice(_clDevice), workFactor(config.workFactor),
+        blocksNum(config.blocksNum), passItersNum(config.passItersNum),
+        kitersNum(config.kitersNum), useInputAndOutput(config.inputAndOutput),
         initialValues(nullptr), toCompare(nullptr)
 {
     failed = false;
     failedWithOptOptions = false;
+    usePolyWalker = false;
     
     clPlatform.getInfo(CL_PLATFORM_NAME, &platformName);
     clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
@@ -352,8 +463,28 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
                 ", blocksNum=" << blocksNum <<
                 ",\n      computeUnits=" << maxComputeUnits <<
                 ", groupSize=" << groupSize <<
-                ", passIters=" << passItersNum << std::endl;
+                ", passIters=" << passItersNum << 
+                ", builtinKernel=" << config.builtinKernel <<
+                ",\n      inputAndOutput=" << (useInputAndOutput?"yes":"no") << std::endl;
     }
+    
+    switch(config.builtinKernel)
+    {
+        case 0:
+            clKernelSource = clKernel1Source;
+            break;
+        case 1:
+            clKernelSource = clKernel2Source;
+            break;
+        case 2:
+            clKernelSource = clKernelPWSource;
+            usePolyWalker = true;
+            break;
+        default:
+            throw MyException("Unsupported builtin kernel!");
+            break;
+    }
+    clKernelSourceSize = ::strlen(clKernelSource);
     
     cl_context_properties clContextProps[5];
     clContextProps[0] = CL_CONTEXT_PLATFORM;
@@ -466,7 +597,8 @@ GPUStressTester::~GPUStressTester()
     delete[] results;
 }
 
-void GPUStressTester::buildKernel(cxuint kitersNum, cxuint blocksNum, bool alwaysPrintBuildLog)
+void GPUStressTester::buildKernel(cxuint thisKitersNum, cxuint thisBlocksNum,
+                bool alwaysPrintBuildLog)
 {
     cl::Program::Sources clSources;
     clSources.push_back(std::make_pair(clKernelSource, clKernelSourceSize));
@@ -477,10 +609,10 @@ void GPUStressTester::buildKernel(cxuint kitersNum, cxuint blocksNum, bool alway
     {
         if (!failedWithOptOptions)
             snprintf(buildOptions, 128, "-O3 -DGROUPSIZE=%zuU -DKITERSNUM=%uU -DBLOCKSNUM=%uU",
-                groupSize, kitersNum, blocksNum);
+                groupSize, thisKitersNum, thisBlocksNum);
         else //
             snprintf(buildOptions, 128, "-DGROUPSIZE=%zuU -DKITERSNUM=%uU -DBLOCKSNUM=%uU",
-                groupSize, kitersNum, blocksNum);
+                groupSize, thisKitersNum, thisBlocksNum);
         clProgram.build(buildOptions);
     }
     catch(const cl::Error& error)
@@ -494,7 +626,7 @@ void GPUStressTester::buildKernel(cxuint kitersNum, cxuint blocksNum, bool alway
             }
             failedWithOptOptions = true;
             snprintf(buildOptions, 128, "-DGROUPSIZE=%zuU -DKITERSNUM=%uU -DBLOCKSNUM=%uU",
-                    groupSize, kitersNum, blocksNum);
+                    groupSize, thisKitersNum, thisBlocksNum);
             try
             { clProgram.build(buildOptions); }
             catch(const cl::Error& error)
@@ -534,7 +666,7 @@ void GPUStressTester::buildKernel(cxuint kitersNum, cxuint blocksNum, bool alway
                 "\n    SetUp: workFactor=" << workFactor <<
                 ", groupSize=" << groupSize << std::endl;
         }
-        buildKernel(kitersNum, blocksNum, alwaysPrintBuildLog);
+        buildKernel(thisKitersNum, thisBlocksNum, alwaysPrintBuildLog);
     }
 }
 
@@ -547,7 +679,7 @@ void GPUStressTester::calibrateKernel()
     clCmdQueue1.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0), bufItemsNum<<2,
             initialValues);
     
-    if (choosenKitersNum == 0)
+    if (kitersNum == 0)
     {
         {
             std::lock_guard<std::mutex> l(stdOutputMutex);
@@ -557,9 +689,9 @@ void GPUStressTester::calibrateKernel()
         
         cl::CommandQueue profCmdQueue(clContext, clDevice, CL_QUEUE_PROFILING_ENABLE);
         
-        for (cxuint kitersNum = 1; kitersNum <= 30; kitersNum++)
+        for (cxuint curKitersNum = 1; curKitersNum <= 30; curKitersNum++)
         {
-            buildKernel(kitersNum, blocksNum, false);
+            buildKernel(curKitersNum, blocksNum, false);
             
             clKernel.setArg(0, cl_uint(workSize));
             clKernel.setArg(1, clBuffer1);
@@ -626,15 +758,15 @@ void GPUStressTester::calibrateKernel()
             currentBandwidth = 2.0*4.0*double(bufItemsNum) / double(currentTime);
             double currentPerf;
             if (!usePolyWalker)
-                currentPerf = 2.0*3.0*double(kitersNum)*double(bufItemsNum) /
+                currentPerf = 2.0*3.0*double(curKitersNum)*double(bufItemsNum) /
                         double(currentTime);
             else
-                currentPerf = 8.0*double(kitersNum)*double(bufItemsNum) /
+                currentPerf = 8.0*double(curKitersNum)*double(bufItemsNum) /
                         double(currentTime);
             
             if (currentBandwidth*currentPerf > bestBandwidth*bestPerf)
             {
-                bestKitersNum = kitersNum;
+                bestKitersNum = curKitersNum;
                 bestPerf = currentPerf;
                 bestBandwidth = currentBandwidth;
             }
@@ -642,7 +774,7 @@ void GPUStressTester::calibrateKernel()
                 std::lock_guard<std::mutex> l(stdOutputMutex);
                 std::cout << "Choose for kernel \n  " <<
                     "#" << id << " " << platformName << ":" << deviceName << "\n"
-                    "  BestKitersNum: " << kitersNum << ", Bandwidth: " << currentBandwidth <<
+                    "  BestKitersNum: " << curKitersNum << ", Bandwidth: " << currentBandwidth <<
                     " GB/s, Performance: " << currentPerf << " GFLOPS" << std::endl;
             }*/
         }
@@ -657,7 +789,7 @@ void GPUStressTester::calibrateKernel()
     }
     else
     {
-        bestKitersNum = choosenKitersNum;
+        bestKitersNum = kitersNum;
         std::lock_guard<std::mutex> l(stdOutputMutex);
         std::cout << "Kernel KitersNum: " << bestKitersNum << std::endl;
     }
@@ -990,36 +1122,10 @@ int main(int argc, const char** argv)
         return 1;
     }
     
-    if (workFactor <= 0)
-    {
-        std::cerr << "WorkFactor is not positive!" << std::endl;
-        return 1;
-    }
-    if (passItersNum <= 0)
-    {
-        std::cerr << "PassIters is not positive!" << std::endl;
-        return 1;
-    }
-    if (blocksNum <= 0)
-    {
-        std::cerr << "BlocksNum is not positive!" << std::endl;
-        return 1;
-    }
-    if (builtinKernel < 0 || builtinKernel > 2)
-    {
-        std::cerr << "Builtin kernel number out of range!" << std::endl;
-        return 1;
-    }
-    if (choosenKitersNum < 0 || choosenKitersNum > 30)
-    {
-        std::cerr << "KitersNum out of range" << std::endl;
-        return 1;
-    }
+    std::cout << "CLGPUStress 0.0.4 by Mateusz Szpakowski. "
+        "Program is distributed under terms of the GPLv2." << std::endl;
     
-    std::cout << "CLGPUStress 0.0.3 by Mateusz Szpakowski. "
-        "Program is delivered under GPLv2 License" << std::endl;
-    
-    if (listDevices)
+    if (listAllDevices)
     {
         listCLDevices();
         return 0;
@@ -1030,14 +1136,9 @@ int main(int argc, const char** argv)
     if (!useAMDPlatform && !useNVIDIAPlatform && !useIntelPlatform)
         useAllPlatforms = true;
     
-    if (programName != nullptr)
-    {
-        if (::strcmp(programName, "gpustressPW.cl") == 0)
-            usePolyWalker = true;
-    }
-    
     int retVal = 0;
     
+    std::vector<GPUStressConfig> gpuStressConfigs;
     std::vector<GPUStressTester*> gpuStressTesters;
     std::vector<std::thread*> testerThreads;
     try
@@ -1049,6 +1150,31 @@ int main(int argc, const char** argv)
             choosenCLDevices = getChoosenCLDevicesFromList(devicesListString);
         if (choosenCLDevices.empty())
             throw MyException("OpenCL devices not found!");
+        
+        if (listChoosenDevices != 0)
+        {
+            listChoosenCLDevices(choosenCLDevices);
+            return 0;
+        }
+        
+        {
+            std::vector<cxuint> workFactors =
+                    parseCmdUIntList(workFactorsString, "work factors");
+            std::vector<cxuint> passItersNums =
+                    parseCmdUIntList(passItersNumsString, "passIters numbers");
+            std::vector<cxuint> blocksNums =
+                    parseCmdUIntList(blocksNumsString, "blocks numbers");
+            std::vector<cxuint> kitersNums =
+                    parseCmdUIntList(kitersNumsString, "kiters numbers");
+            std::vector<cxuint> builtinKernels =
+                    parseCmdUIntList(builtinKernelsString, "builtin kernels");
+            std::vector<bool> inputAndOutputs =
+                    parseCmdBoolList(inputAndOutputsString, "inputAndOutputs");
+            
+            gpuStressConfigs = collectGPUStressConfigs(choosenCLDevices.size(),
+                    passItersNums, workFactors, blocksNums, kitersNums,
+                    builtinKernels, inputAndOutputs);
+        }
         
         std::cout <<
             "\nWARNING: THIS PROGRAM CAN OVERHEAT OR DAMAGE "
@@ -1063,43 +1189,12 @@ int main(int argc, const char** argv)
         if (dontWait==0)
             std::this_thread::sleep_for(std::chrono::milliseconds(8000));
         
-        if (programName != nullptr)
-        {
-            std::cout << "Load kernel code from file " << programName << std::endl;
-            clKernelSource = loadFromFile(programName, clKernelSourceSize);
-        }
-        else
-        {
-            std::cout << "Choosing builtin kernel: " << builtinKernel << std::endl;
-            switch(builtinKernel)
-            {
-                case 0:
-                    clKernelSource = clKernel1Source;
-                    break;
-                case 1:
-                    clKernelSource = clKernel2Source;
-                    break;
-                case 2:
-                    clKernelSource = clKernelPWSource;
-                    usePolyWalker = true;
-                    break;
-                default:
-                    throw MyException("Unsupported builtin kernel!");
-                    break;
-            }
-            clKernelSourceSize = ::strlen(clKernelSource);
-        }
-        
         for (size_t i = 0; i < choosenCLDevices.size(); i++)
         {
             auto& p = choosenCLDevices[i];
-            gpuStressTesters.push_back(new GPUStressTester(i, p.first, p.second, workFactor,
-                            blocksNum, passItersNum));
+            gpuStressTesters.push_back(new GPUStressTester(i, p.first, p.second,
+                        gpuStressConfigs[i]));
         }
-        
-        if (programName != nullptr)
-            delete[] clKernelSource;
-        clKernelSource = nullptr;
         
         for (size_t i = 0; i < choosenCLDevices.size(); i++)
             testerThreads.push_back(new std::thread(
@@ -1107,8 +1202,6 @@ int main(int argc, const char** argv)
     }
     catch(const cl::Error& error)
     {
-        if (programName != nullptr)
-            delete[] clKernelSource;
         std::lock_guard<std::mutex> l(stdOutputMutex);
         std::cerr << "OpenCL error happened: " << error.what() <<
                 ", Code: " << error.err() << std::endl;
@@ -1116,8 +1209,6 @@ int main(int argc, const char** argv)
     }
     catch(const std::exception& ex)
     {
-        if (programName != nullptr)
-            delete[] clKernelSource;
         std::lock_guard<std::mutex> l(stdOutputMutex);
         std::cerr << "Exception happened: " << ex.what() << std::endl;
         retVal = 1;
@@ -1137,7 +1228,8 @@ int main(int argc, const char** argv)
             delete testerThreads[i];
             testerThreads[i] = nullptr;
             std::lock_guard<std::mutex> l(stdOutputMutex);
-            if (!gpuStressTesters[i]->isFailed())
+            if (gpuStressTesters.size() > i &&
+                gpuStressTesters[i] != nullptr && !gpuStressTesters[i]->isFailed())
                 std::cout << "Finished #" << i << std::endl;
         }
     for (size_t i = 0; i < gpuStressTesters.size(); i++)
