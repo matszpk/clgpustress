@@ -25,7 +25,6 @@
 #include <fstream>
 #include <string>
 #include <cstring>
-#include <sstream>
 #include <vector>
 #include <utility>
 #include <set>
@@ -429,14 +428,17 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
         cl::Event clEvent;
         clCmdQueue1.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
                 cl::NDRange(workSize), cl::NDRange(groupSize), NULL, &clEvent);
-        clEvent.wait();
-        int eventStatus;
-        clEvent.getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
-        if (eventStatus < 0)
+        try
+        { clEvent.wait(); }
+        catch(const cl::Error& err)
         {
-            std::ostringstream oss;
-            oss << "Failed NDRangeKernel with code: " << eventStatus << std::endl;
-            throw MyException(oss.str());
+            if (err.err() != CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST)
+                throw; // if other error
+            int eventStatus;
+            clEvent.getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
+            char strBuf[64];
+            snprintf(strBuf, 64, "Failed NDRangeKernel with code: %d", eventStatus);
+            throw MyException(strBuf);
         }
     }
     
@@ -553,14 +555,17 @@ void GPUStressTester::calibrateKernel()
                 cl::Event profEvent;
                 profCmdQueue.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
                         cl::NDRange(workSize), cl::NDRange(groupSize), NULL, &profEvent);
-                profEvent.wait();
-                int eventStatus;
-                profEvent.getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
-                if (eventStatus < 0)
+                try
+                { profEvent.wait(); }
+                catch(const cl::Error& err)
                 {
-                    std::ostringstream oss;
-                    oss << "Failed NDRangeKernel with code: " << eventStatus << std::endl;
-                    throw MyException(oss.str());
+                    if (err.err() != CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST)
+                        throw; // if other error
+                    int eventStatus;
+                    profEvent.getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
+                    char strBuf[64];
+                    snprintf(strBuf, 64, "Failed NDRangeKernel with code: %d", eventStatus);
+                    throw MyException(strBuf);
                 }
                 
                 cl_ulong eventStartTime, eventEndTime;
@@ -769,7 +774,7 @@ try
                 if (eventStatus < 0)
                 {
                     char strBuf[64];
-                    snprintf(strBuf, 64, "Failed NDRangeKernel with code: %u", eventStatus);
+                    snprintf(strBuf, 64, "Failed NDRangeKernel with code: %d", eventStatus);
                     throw MyException(strBuf);
                 }
                 exec2Events[i] = cl::Event(); // release event
@@ -840,7 +845,7 @@ try
                 if (eventStatus < 0)
                 {
                     char strBuf[64];
-                    snprintf(strBuf, 64, "Failed NDRangeKernel with code: %u", eventStatus);
+                    snprintf(strBuf, 64, "Failed NDRangeKernel with code: %d", eventStatus);
                     throw MyException(strBuf);
                 }
                 exec1Events[i] = cl::Event(); // release event
@@ -897,10 +902,11 @@ catch(const cl::Error& error)
     failed = true;
     try
     {
-        std::ostringstream oss;
-        oss << "OpenCL error happened: " << error.what() << ", Code: " << error.err();
-        oss.flush();
-        failMessage = oss.str();
+        char codeBuf[64];
+        snprintf(codeBuf, 64, ", Code: %d", error.err());
+        failMessage = "OpenCL error happened: ";
+        failMessage +=  error.what();
+        failMessage += codeBuf;
         std::lock_guard<std::mutex> l(stdOutputMutex);
         std::cerr << "Failed StressTester for\n  " <<
                 "#" << id  << " " << platformName << ":" << deviceName << ": " <<
@@ -914,10 +920,8 @@ catch(const std::exception& ex)
     failed = true;
     try
     {
-        std::ostringstream oss;
-        oss << "Exception happened: " << ex.what();
-        oss.flush();
-        failMessage = oss.str();
+        failMessage = "OpenCL error happened: ";
+        failMessage += ex.what();
         std::lock_guard<std::mutex> l(stdOutputMutex);
         std::cerr << "Failed StressTester for\n  " <<
                 "#" << id << " " << platformName << ":" << deviceName << ":\n    " <<
@@ -1019,14 +1023,15 @@ int main(int argc, const char** argv)
             throw MyException("OpenCL devices not found!");
         
         std::cout <<
-            "\nWARNING: THIS PROGRAM CAN OVERHEAT OR DAMAGE YOUR GRAPHICS CARD FASTER (AND BETTER)\n"
+            "\nWARNING: THIS PROGRAM CAN OVERHEAT OR DAMAGE "
+            "YOUR GRAPHICS CARD FASTER (AND BETTER)\n"
             "THAN ANY FURMARK STRESS. PLEASE USE THIS PROGRAM VERY CAREFULLY!!!\n"
             "RECOMMEND TO RUN THIS PROGRAM ON STOCK PARAMETERS "
             "(CLOCKS, VOLTAGES,\nESPECIALLY MEMORY CLOCK).\n"
             "TO TERMINATE THIS PROGRAM PLEASE USE STANDARD CTRL-C.\n" << std::endl;
         if (exitIfAllFails)
-            std::cout << "Program exits only when all devices fails.\n"
-                "Please trace output to find failed device and react!\n" << std::endl;
+            std::cout << "PROGRAM EXITS ONLY WHEN ALL DEVICES FAILS.\n"
+                "PLEASE TRACE OUTPUT TO FIND FAILED DEVICE AND REACT!\n" << std::endl;
         if (dontWait==0)
             std::this_thread::sleep_for(std::chrono::milliseconds(8000));
         
