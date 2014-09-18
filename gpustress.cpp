@@ -905,7 +905,7 @@ catch(const cl::Error& error)
         char codeBuf[64];
         snprintf(codeBuf, 64, ", Code: %d", error.err());
         failMessage = "OpenCL error happened: ";
-        failMessage +=  error.what();
+        failMessage += error.what();
         failMessage += codeBuf;
         std::lock_guard<std::mutex> l(stdOutputMutex);
         std::cerr << "Failed StressTester for\n  " <<
@@ -988,7 +988,7 @@ int main(int argc, const char** argv)
         return 1;
     }
     
-    std::cout << "CLGPUStress 0.0.2 by Mateusz Szpakowski. "
+    std::cout << "CLGPUStress 0.0.3 by Mateusz Szpakowski. "
         "Program is delivered under GPLv2 License" << std::endl;
     
     if (listDevices)
@@ -1029,7 +1029,7 @@ int main(int argc, const char** argv)
             "RECOMMEND TO RUN THIS PROGRAM ON STOCK PARAMETERS "
             "(CLOCKS, VOLTAGES,\nESPECIALLY MEMORY CLOCK).\n"
             "TO TERMINATE THIS PROGRAM PLEASE USE STANDARD CTRL-C.\n" << std::endl;
-        if (exitIfAllFails)
+        if (exitIfAllFails && choosenCLDevices.size() > 1)
             std::cout << "PROGRAM EXITS ONLY WHEN ALL DEVICES FAILS.\n"
                 "PLEASE TRACE OUTPUT TO FIND FAILED DEVICE AND REACT!\n" << std::endl;
         if (dontWait==0)
