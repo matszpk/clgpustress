@@ -255,7 +255,7 @@ static void listCLDevices()
     std::cout.flush();
 }
 
-static const float  examplePoly[5] = 
+static const float examplePoly[5] = 
 { 4.43859953e+05,   1.13454169e+00,  -4.50175916e-06, -1.43865531e-12,   4.42133541e-18 };
 
 class GPUStressTester
@@ -301,6 +301,8 @@ private:
     void printStatus(cxuint passNum);
     void throwFailedComputations(cxuint passNum);
     
+    bool failedWithOptOptions;
+    
     void buildKernel(cxuint kitersNum, cxuint blocksNum, bool alwaysPrintBuildLog);
     void calibrateKernel();
 public:
@@ -322,6 +324,7 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
         initialValues(nullptr), toCompare(nullptr)
 {
     failed = false;
+    failedWithOptOptions = false;
     
     clPlatform.getInfo(CL_PLATFORM_NAME, &platformName);
     clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
@@ -469,17 +472,42 @@ void GPUStressTester::buildKernel(cxuint kitersNum, cxuint blocksNum, bool alway
     clSources.push_back(std::make_pair(clKernelSource, clKernelSourceSize));
     clProgram = cl::Program(clContext, clSources);
     
+    char buildOptions[128];
     try
     {
-        char buildOptions[128];
-        snprintf(buildOptions, 128, "-O5 -DGROUPSIZE=%zu -DKITERSNUM=%u -DBLOCKSNUM=%u",
+        if (!failedWithOptOptions)
+            snprintf(buildOptions, 128, "-O3 -DGROUPSIZE=%zuU -DKITERSNUM=%uU -DBLOCKSNUM=%uU",
+                groupSize, kitersNum, blocksNum);
+        else //
+            snprintf(buildOptions, 128, "-DGROUPSIZE=%zuU -DKITERSNUM=%uU -DBLOCKSNUM=%uU",
                 groupSize, kitersNum, blocksNum);
         clProgram.build(buildOptions);
     }
     catch(const cl::Error& error)
     {
-        printBuildLog();
-        throw;
+        if (!failedWithOptOptions && error.err() == CL_INVALID_BUILD_OPTIONS)
+        {   // try with no opt options
+            {   /* fix for POCL (its needed???) */
+                std::lock_guard<std::mutex> l(stdOutputMutex);
+                std::cout <<
+                    "Trying to compile without optimizing compiler flags..." << std::endl;
+            }
+            failedWithOptOptions = true;
+            snprintf(buildOptions, 128, "-DGROUPSIZE=%zuU -DKITERSNUM=%uU -DBLOCKSNUM=%uU",
+                    groupSize, kitersNum, blocksNum);
+            try
+            { clProgram.build(buildOptions); }
+            catch(const cl::Error& error)
+            {
+                printBuildLog();
+                throw;
+            }
+        }
+        else
+        {
+            printBuildLog();
+            throw;
+        }
     }
     if (alwaysPrintBuildLog)
         printBuildLog();
