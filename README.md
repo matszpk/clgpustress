@@ -95,7 +95,7 @@ GPUStress allows to select devices from specified the OpenCL platform, by using 
 - '-E' - choose only devices from Intel platform
 
 You can combime these options to choose many platforms.
-By default gpustress choose devices from all  platforms.
+By default gpustress chooses devices from all  platforms.
 
 Moreover gpustress allows to choose devices of particular type:
 
@@ -106,7 +106,7 @@ Moreover gpustress allows to choose devices of particular type:
 - '-a' - choose only accelerators
 
 You can combine these option to choose devices of many types.
-By default gpustresss choose only GPU devices.
+By default gpustresss chooses only GPU devices.
 
 The custom devices are not supported, because doesn't supports for the OpenCL compiler.
 
