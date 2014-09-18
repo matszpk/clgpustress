@@ -920,7 +920,7 @@ catch(const std::exception& ex)
     failed = true;
     try
     {
-        failMessage = "OpenCL error happened: ";
+        failMessage = "Exception happened: ";
         failMessage += ex.what();
         std::lock_guard<std::mutex> l(stdOutputMutex);
         std::cerr << "Failed StressTester for\n  " <<
