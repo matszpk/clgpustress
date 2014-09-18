@@ -69,6 +69,7 @@ extern const char* clKernelPWSource;
 
 static int useCPUs = 0;
 static int useGPUs = 0;
+static int useAccelerators = 0;
 static int workFactor = 256;
 static int blocksNum = 2;
 static int passItersNum = 32;
@@ -99,14 +100,18 @@ static const poptOption optionsTable[] =
     { "listDevices", 'l', POPT_ARG_VAL, &listDevices, 'l', "list OpenCL devices", nullptr },
     { "devicesList", 'L', POPT_ARG_STRING, &devicesListString, 'L',
         "specify list of devices in form: 'platformId:deviceId,....'", "DEVICELIST" },
-    { "useCPUs", 'C', POPT_ARG_VAL, &useCPUs, 'C', "use CPUs", nullptr },
-    { "useGPUs", 'G', POPT_ARG_VAL, &useGPUs, 'G', "use GPUs", nullptr },
+    { "useCPUs", 'C', POPT_ARG_VAL, &useCPUs, 'C', "use all CPU devices", nullptr },
+    { "useGPUs", 'G', POPT_ARG_VAL, &useGPUs, 'G', "use all GPU devices", nullptr },
+    { "useAccs", 'a', POPT_ARG_VAL, &useAccelerators, 'a',
+        "use all accelerator devices", nullptr },
     { "useAMD", 'A', POPT_ARG_VAL, &useAMDPlatform, 'A', "use AMD platform", nullptr },
     { "useNVIDIA", 'N', POPT_ARG_VAL, &useNVIDIAPlatform, 'N',
         "use NVIDIA platform", nullptr },
     { "useIntel", 'E', POPT_ARG_VAL, &useIntelPlatform, 'L', "use Intel platform", nullptr },
-    { "program", 'P', POPT_ARG_STRING, &programName, 'P', "CL program name", "NAME" },
-    { "builtin", 'T', POPT_ARG_INT, &builtinKernel, 'T', "CL builtin kernel", "[0-2]" },
+    { "program", 'P', POPT_ARG_STRING, &programName, 'P',
+        "choose OpenCL program name", "NAME" },
+    { "builtin", 'T', POPT_ARG_INT, &builtinKernel, 'T',
+        "choose OpenCL builtin kernel", "[0-2]" },
     { "inAndOut", 'I', POPT_ARG_VAL, &useInputAndOutput, 'I',
       "use input and output buffers (doubles memory reqs.)" },
     { "workFactor", 'W', POPT_ARG_INT, &workFactor, 'W',
@@ -178,6 +183,8 @@ std::vector<std::pair<cl::Platform, cl::Device> > getChoosenCLDevices()
             deviceType |= CL_DEVICE_TYPE_GPU;
         if (useCPUs)
             deviceType |= CL_DEVICE_TYPE_CPU;
+        if (useAccelerators)
+            deviceType |= CL_DEVICE_TYPE_ACCELERATOR;
             
         clPlatform.getDevices(deviceType, &clDevices);
         for (const cl::Device& clDevice: clDevices)
@@ -770,7 +777,6 @@ try
                             results);
             if (::memcmp(toCompare, results, bufItemsNum<<2))
                 throwFailedComputations(pass2Num);
-            
             printStatus(pass2Num);
             pass2Num += 2;
         }
