@@ -754,7 +754,13 @@ try
         
         if (run2Exec)
         {   /* after exec2 */
-            exec2Events[passItersNum-1].wait();
+            try
+            { exec2Events[passItersNum-1].wait(); }
+            catch(const cl::Error& err)
+            {
+                if (err.err() != CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST)
+                    throw; // if other error
+            }
             run2Exec = false;
             for (cxuint i = 0; i < passItersNum; i++)
             {   // check kernel event status
@@ -819,7 +825,13 @@ try
         
         if (run1Exec)
         {   /* after exec1 */
-            exec1Events[passItersNum-1].wait();
+            try
+            { exec1Events[passItersNum-1].wait(); }
+            catch(const cl::Error& err)
+            {
+                if (err.err() != CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST)
+                    throw; // if other error
+            }
             run1Exec = false;
             for (cxuint i = 0; i < passItersNum; i++)
             {   // check kernel event status
@@ -850,15 +862,35 @@ try
     catch(...)
     {   /* wait for finish kernels */
         if (exec1Events[passItersNum-1]() != nullptr)
-            exec1Events[passItersNum-1].wait();
+        {
+            try
+            { exec1Events[passItersNum-1].wait(); }
+            catch(...)
+            { }
+        }
         if (exec2Events[passItersNum-1]() != nullptr)
-            exec2Events[passItersNum-1].wait();
+        {
+            try
+            { exec2Events[passItersNum-1].wait(); }
+            catch(...)
+            { }
+        }
         throw;
     }
     if (exec1Events[passItersNum-1]() != nullptr)
-        exec1Events[passItersNum-1].wait();
+    {
+        try
+        { exec1Events[passItersNum-1].wait(); }
+        catch(...)
+        { }
+    }
     if (exec2Events[passItersNum-1]() != nullptr)
-        exec2Events[passItersNum-1].wait();
+    {
+        try
+        { exec2Events[passItersNum-1].wait(); }
+        catch(...)
+        { }
+    }
 }
 catch(const cl::Error& error)
 {
