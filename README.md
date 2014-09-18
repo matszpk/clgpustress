@@ -131,13 +131,13 @@ Examples:
 
 gpustress -L 0:0,0:1 -W 512,4 -B 2 -T 1 -I YN
 
-choose for all devices blocksNum=2, builtinKernel=1, for first device: workFactor=512, inAndOut=yes
+chooses for all devices blocksNum=2, builtinKernel=1, for first device: workFactor=512, inAndOut=yes
 ; for second device: workFactor=4, inAndOut=no.
 
 If value's list will be shorter than list of the choosen devices then
 last provided value from list will be choosen for remaining devices.
 
-For determining the order of the choosen devices, you can use '-c' option to get that order.
+For a determining the order of the choosen devices, you can use '-c' option to get that order.
 
 ### supported tests
 
