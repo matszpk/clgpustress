@@ -842,12 +842,12 @@ void GPUStressTester::printStatus(cxuint passNum)
         perf = 10.0*8.0*double(kitersNum)*double(passItersNum)*double(bufItemsNum)
                 / double(nanos);
     
-    const int32_t startMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
+    const int64_t startMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
                 currentTime-startTime).count();
-    
     char timeStrBuf[128];
-    snprintf(timeStrBuf, 128, "%02u:%02u:%02u.%03u", (startMillis/3600000),
-             (startMillis/60000)%60, (startMillis/1000)%60, (startMillis%1000));
+    snprintf(timeStrBuf, 128, "%02u:%02u:%02u.%03u", cxuint(startMillis/3600000),
+             cxuint((startMillis/60000)%60), cxuint((startMillis/1000)%60),
+             cxuint(startMillis%1000));
     
     std::lock_guard<std::mutex> l(stdOutputMutex);
     std::cout << "#" << id << " " << platformName << ":" << deviceName <<
@@ -859,13 +859,13 @@ void GPUStressTester::printStatus(cxuint passNum)
 void GPUStressTester::throwFailedComputations(cxuint passNum)
 {
     const time_point currentTime = std::chrono::high_resolution_clock::now();
-    const int32_t startMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
+    const int64_t startMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
                 currentTime-startTime).count();
     char strBuf[128];
     snprintf(strBuf, 128,
              "FAILED COMPUTATIONS!!!! PASS #%u, Elapsed time: %02u:%02u:%02u.%03u",
-             passNum, (startMillis/3600000), (startMillis/60000)%60, (startMillis/1000)%60,
-             (startMillis%1000));
+             passNum, cxuint(startMillis/3600000), cxuint((startMillis/60000)%60),
+             cxuint((startMillis/1000)%60), cxuint(startMillis%1000));
     if (!exitIfAllFails)
         stopAllStressTesters.store(true);
     throw MyException(strBuf);
