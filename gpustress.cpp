@@ -19,8 +19,13 @@
 
 #define __CL_ENABLE_EXCEPTIONS 1
 
+#ifdef _MSC_VER
+#  define NOMINMAX 1
+#endif
+
 #include <iostream>
 #include <algorithm>
+#include <numeric>
 #include <cstdio>
 #include <string>
 #include <cstring>
@@ -34,6 +39,10 @@
 #include <atomic>
 #include <popt.h>
 #include <CL/cl.hpp>
+
+#ifdef _MSC_VER
+#  define snprintf _snprintf
+#endif
 
 typedef unsigned short cxushort;
 typedef signed short cxshort;
