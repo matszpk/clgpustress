@@ -1130,7 +1130,7 @@ int main(int argc, const char** argv)
         return 1;
     }
     
-    std::cout << "CLGPUStress 0.0.4.1 by Mateusz Szpakowski. "
+    std::cout << "CLGPUStress 0.0.4.2 by Mateusz Szpakowski. "
         "Program is distributed under terms of the GPLv2." << std::endl;
     
     if (listAllDevices)
