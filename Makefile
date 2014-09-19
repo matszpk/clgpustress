@@ -5,14 +5,14 @@
 
 .PHONY: all clean
 
-AMDAPP = /opt/AMDAPP
+OPENCLDIR = /opt/AMDAPP
 
 LDFLAGS = -Wall
 CXXFLAGS = -Wall -std=gnu++11 -O2 -fexpensive-optimizations
 # CXXFLAGS = -Wall -g -std=gnu++11
 CXX = g++
-LIBDIRS = -L$(AMDAPP)/lib
-INCDIRS = -I$(AMDAPP)/include
+LIBDIRS = -L$(OPENCLDIR)/lib
+INCDIRS = -I$(OPENCLDIR)/include
 LIBS = -lm -pthread -lpopt -lOpenCL
 
 all: gpustress

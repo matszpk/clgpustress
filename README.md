@@ -1,7 +1,7 @@
 clgpustress
 ===========
 
-Heavy OpenCL GPU stress tester (version 0.0.4)
+Heavy OpenCL GPU stress tester (version 0.0.4.1)
 
 ### IMPORTANT CAUTION!!!!!
 
@@ -44,14 +44,21 @@ To clean project enter command:
 
 make clean
 
-AMDAPP variable defined in Makefile may be changed for successful compilation. If you have AMDAPP or OPENCL directory
-in other place than /opt/AMDAPP you must change AMDAPP variable in Makefile file.
+OPENCLDIR variable defined in Makefile may be changed for successful compilation.
+If you have AMDAPP or OPENCL directory in other place than /opt/AMDAPP you must change
+OPENCLDIR variable in Makefile file.
 
 ### Memory requirements
 
-Program prints size of memory required in GPU (device) memory.
+Program prints size of memory required in the device memory.
+Standard tests requires 64 * blocksNum * workFactor * maxComputeUnits * maxWorkGroupSize bytes in
+device memory.
+
+You can get maxComputeUnits and maxWorkGroupSize from 'clinfo' or from other
+OpenCL diagnostics utility.
+
 Option '-I' chooses standard method with decoupled input and output which requires
-double size of memory on the device.
+double size of memory on the device. By default program uses single buffer for input and output.
 
 Program needs also host memory: 192 * blocksNum * workSize bytes for buffers.
 
@@ -76,6 +83,22 @@ Examples of usage:
 - run stress only on second device from second platform: ./gpustress -L 1:1
 
 If option '-j' is not specified then program automatically calibrates test for device for performance and memory bandwidth.
+
+#### Parameters of tests
+
+Now you can specify following parameters for tests:
+
+- workFactor - controls work size: (workitems number: workFactor * maxComputeUnits * maxWorkGroupSize)
+
+- blocksNum - number of blocks processed by single workitem (can be in 1-16)
+
+- passIters - number of iterations of the execution kernel in single pass
+
+- kitersNum - number of iteration of core computation within single memory access
+
+- inputAndOutput - enables input/output mode
+
+- builtinKernel - kernel of the test (0-2). tests are described in supported tests section
 
 #### Specifiyng devices to testing:
 
@@ -123,9 +146,11 @@ choose first device from first platform; second,third,fourth device from second 
 In easiest way, you can choose one value for all devices by providing a single value.
 
 You can choose different values for particular devices for following parameters:
-workFactor, blocksNum, passItersNum, kitersNum, builtinKernels, inputAndOutput.
+workFactor, blocksNum, passItersNum, kitersNum, builtinKernel, inputAndOutput.
 Values are in list that is comma separated, excepts inputAndOutput where is sequence of
-the characters ('1','Y','T' - enables; '0','N','F' - disables).
+the characters ('1','Y','T' - enables; '0','N','F' - disables). Moreover parameter of '-I' option
+is optional (if not specified program assumes that inputAndOutput modes will be
+applied for all devices).
 
 Examples:
 

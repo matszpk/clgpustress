@@ -836,7 +836,7 @@ void GPUStressTester::printStatus(cxuint passNum)
     
     std::lock_guard<std::mutex> l(stdOutputMutex);
     std::cout << "#" << id << " " << platformName << ":" << deviceName <<
-            " was passed PASS #" << passNum << "\n"
+            " passed PASS #" << passNum << "\n"
             "Approx. bandwidth: " << bandwidth << " GB/s, "
             "Approx. perf: " << perf << " GFLOPS, elapsed: " << timeStrBuf << std::endl;
 }
@@ -1115,7 +1115,7 @@ int main(int argc, const char** argv)
         return 1;
     }
     
-    std::cout << "CLGPUStress 0.0.4 by Mateusz Szpakowski. "
+    std::cout << "CLGPUStress 0.0.4.1 by Mateusz Szpakowski. "
         "Program is distributed under terms of the GPLv2." << std::endl;
     
     if (listAllDevices)
