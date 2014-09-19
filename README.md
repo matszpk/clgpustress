@@ -15,6 +15,10 @@ THIS PROGRAM WAS TESTED ONLY ON RADEON HD 7850 AND CAN BEHAVES INCORRECTLY ON OT
 
 YOU ARE USING THIS SOFTWARE ONLY ON YOUR OWN RISK!
 
+### Available binaries
+
+Binaries are at http://files.nativeboinc.org/offtopic/clgpustress/.
+
 ### Program behaviour
 
 By default program finds ALL GPU devices from all platforms and runs stress for them.
