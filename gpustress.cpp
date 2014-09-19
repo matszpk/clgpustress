@@ -104,7 +104,7 @@ static const poptOption optionsTable[] =
     { "useIntel", 'E', POPT_ARG_VAL, &useIntelPlatform, 'L', "use Intel platform", nullptr },
     { "builtin", 'T', POPT_ARG_STRING, &builtinKernelsString, 'T',
         "choose OpenCL builtin kernel", "NUMLIST [0-2]" },
-    { "inAndOut", 'I', POPT_ARG_STRING, &inputAndOutputsString, 'I',
+    { "inAndOut", 'I', POPT_ARG_STRING|POPT_ARGFLAG_OPTIONAL, &inputAndOutputsString, 'I',
       "use input and output buffers (doubles memory reqs.)", "BOOLLIST" },
     { "workFactor", 'W', POPT_ARG_STRING, &workFactorsString, 'W',
         "set workSize=factor*compUnits*grpSize", "FACTORLIST" },
@@ -561,7 +561,7 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
         }
         cl::Event clEvent;
         clCmdQueue1.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
-                cl::NDRange(workSize), cl::NDRange(groupSize), NULL, &clEvent);
+                cl::NDRange(workSize), cl::NDRange(groupSize), nullptr, &clEvent);
         try
         { clEvent.wait(); }
         catch(const cl::Error& err)
@@ -714,7 +714,7 @@ void GPUStressTester::calibrateKernel()
             {
                 cl::Event profEvent;
                 profCmdQueue.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
-                        cl::NDRange(workSize), cl::NDRange(groupSize), NULL, &profEvent);
+                        cl::NDRange(workSize), cl::NDRange(groupSize), nullptr, &profEvent);
                 try
                 { profEvent.wait(); }
                 catch(const cl::Error& err)
@@ -913,7 +913,7 @@ try
                 }
             }
             clCmdQueue1.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
-                    cl::NDRange(workSize), cl::NDRange(groupSize), NULL, &exec1Events[i]);
+                    cl::NDRange(workSize), cl::NDRange(groupSize), nullptr, &exec1Events[i]);
         }
         run1Exec = true;
         
@@ -984,7 +984,7 @@ try
                 }
             }
             clCmdQueue1.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
-                    cl::NDRange(workSize), cl::NDRange(groupSize), NULL, &exec2Events[i]);
+                    cl::NDRange(workSize), cl::NDRange(groupSize), nullptr, &exec2Events[i]);
         }
         run2Exec = true;
         
@@ -1026,36 +1026,24 @@ try
     }
     catch(...)
     {   /* wait for finish kernels */
-        if (exec1Events[passItersNum-1]() != nullptr)
-        {
-            try
-            { exec1Events[passItersNum-1].wait(); }
-            catch(...)
-            { }
-        }
-        if (exec2Events[passItersNum-1]() != nullptr)
-        {
-            try
-            { exec2Events[passItersNum-1].wait(); }
-            catch(...)
-            { }
-        }
+        try
+        { clCmdQueue1.finish(); }
+        catch(...)
+        { }
+        try
+        { clCmdQueue2.finish(); }
+        catch(...)
+        { }
         throw;
     }
-    if (exec1Events[passItersNum-1]() != nullptr)
-    {
-        try
-        { exec1Events[passItersNum-1].wait(); }
-        catch(...)
-        { }
-    }
-    if (exec2Events[passItersNum-1]() != nullptr)
-    {
-        try
-        { exec2Events[passItersNum-1].wait(); }
-        catch(...)
-        { }
-    }
+    try
+    { clCmdQueue1.finish(); }
+    catch(...)
+    { }
+    try
+    { clCmdQueue2.finish(); }
+    catch(...)
+    { }
 }
 catch(const cl::Error& error)
 {
@@ -1112,8 +1100,13 @@ int main(int argc, const char** argv)
     
     optsContext = poptGetContext("gpustress", argc, argv, optionsTable, 0);
     
+    bool globalInputAndOutput = false;
     /* parse options */
-    while((cmd = poptGetNextOpt(optsContext)) >= 0);
+    while((cmd = poptGetNextOpt(optsContext)) >= 0)
+    {
+        if (cmd == 'I')
+            globalInputAndOutput = true;
+    }
     
     if (cmd < -1)
     {
@@ -1158,6 +1151,8 @@ int main(int argc, const char** argv)
         }
         
         {
+            if (inputAndOutputsString == nullptr && globalInputAndOutput)
+                inputAndOutputsString = "1";
             std::vector<cxuint> workFactors =
                     parseCmdUIntList(workFactorsString, "work factors");
             std::vector<cxuint> passItersNums =
