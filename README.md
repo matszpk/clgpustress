@@ -77,7 +77,7 @@ Examples of usage:
 
 If option '-j' is not specified then program automatically calibrates test for device for performance and memory bandwidth.
 
-#### Parameters of tests
+#### Parameters for the tests
 
 Now you can specify following parameters for tests:
 
