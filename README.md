@@ -67,19 +67,12 @@ Program needs also host memory: 192 * blocksNum * workSize bytes for buffers.
 Examples of usage:
 
 - print help: ./gpustress -?
-
 - simplest usage: ./gpustress
-
 - run stress: ./gpustress -G -W512 -S32 -B2 -T0
-
 - run stress only on AMD devices: ./gpustress -A
-
 - run stress only on NVIDIA devices: ./gpustress -N
-
 - run stress only on Intel devices: ./gpustress -E
-
 - run stress only on first device from first platform: ./gpustress -L 0:0
-
 - run stress only on second device from second platform: ./gpustress -L 1:1
 
 If option '-j' is not specified then program automatically calibrates test for device for performance and memory bandwidth.
@@ -89,15 +82,10 @@ If option '-j' is not specified then program automatically calibrates test for d
 Now you can specify following parameters for tests:
 
 - workFactor - controls work size: (workitems number: workFactor * maxComputeUnits * maxWorkGroupSize)
-
 - blocksNum - number of blocks processed by single workitem (can be in 1-16)
-
 - passIters - number of iterations of the execution kernel in single pass
-
 - kitersNum - number of iteration of core computation within single memory access
-
 - inputAndOutput - enables input/output mode
-
 - builtinKernel - kernel of the test (0-2). tests are described in supported tests section
 
 #### Specifiyng devices to testing:
@@ -112,9 +100,7 @@ gpustress prints all OpenCL devices, also prints their the platform id and the d
 GPUStress allows to select devices from specified the OpenCL platform, by using following options:
 
 - '-A' - choose only devices from AMD (AMDAPP) platform
-
 - '-N' - choose only devices from NVIDIA (NVIDIA CUDA) platform
-
 - '-E' - choose only devices from Intel platform
 
 You can combime these options to choose many platforms.
@@ -123,9 +109,7 @@ By default gpustress chooses devices from all  platforms.
 Moreover gpustress allows to choose devices of particular type:
 
 - '-C' - choose only CPU devices
-
 - '-G' - choose only GPU devices
-
 - '-a' - choose only accelerators
 
 You can combine these option to choose devices of many types.
