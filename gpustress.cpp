@@ -42,6 +42,9 @@
 
 #ifdef _MSC_VER
 #  define snprintf _snprintf
+#  define SIZE_T_SPEC "%Iu"
+#else
+#  define SIZE_T_SPEC "%zu"
 #endif
 
 typedef unsigned short cxushort;
@@ -617,10 +620,12 @@ void GPUStressTester::buildKernel(cxuint thisKitersNum, cxuint thisBlocksNum,
     try
     {
         if (!failedWithOptOptions)
-            snprintf(buildOptions, 128, "-O3 -DGROUPSIZE=%zuU -DKITERSNUM=%uU -DBLOCKSNUM=%uU",
+            snprintf(buildOptions, 128, "-O3 -DGROUPSIZE=" SIZE_T_SPEC
+                "U -DKITERSNUM=%uU -DBLOCKSNUM=%uU",
                 groupSize, thisKitersNum, thisBlocksNum);
         else //
-            snprintf(buildOptions, 128, "-DGROUPSIZE=%zuU -DKITERSNUM=%uU -DBLOCKSNUM=%uU",
+            snprintf(buildOptions, 128, "-DGROUPSIZE=" SIZE_T_SPEC
+                "U -DKITERSNUM=%uU -DBLOCKSNUM=%uU",
                 groupSize, thisKitersNum, thisBlocksNum);
         clProgram.build(buildOptions);
     }
@@ -634,7 +639,8 @@ void GPUStressTester::buildKernel(cxuint thisKitersNum, cxuint thisBlocksNum,
                     "Trying to compile without optimizing compiler flags..." << std::endl;
             }
             failedWithOptOptions = true;
-            snprintf(buildOptions, 128, "-DGROUPSIZE=%zuU -DKITERSNUM=%uU -DBLOCKSNUM=%uU",
+            snprintf(buildOptions, 128, "-DGROUPSIZE=" SIZE_T_SPEC
+                    "U -DKITERSNUM=%uU -DBLOCKSNUM=%uU",
                     groupSize, thisKitersNum, thisBlocksNum);
             try
             { clProgram.build(buildOptions); }
