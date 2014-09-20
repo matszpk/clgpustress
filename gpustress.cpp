@@ -47,6 +47,8 @@
 #  define SIZE_T_SPEC "%zu"
 #endif
 
+#define PROGRAM_VERSION "0.0.4.3"
+
 typedef unsigned short cxushort;
 typedef signed short cxshort;
 typedef unsigned int cxuint;
@@ -94,6 +96,7 @@ static const char* passItersNumsString = nullptr;
 static const char* kitersNumsString = nullptr;
 static int dontWait = 0;
 static int exitIfAllFails = 0;
+static int printVersion = 0;
 
 static std::mutex stdOutputMutex;
 
@@ -101,7 +104,8 @@ static std::atomic<bool> stopAllStressTesters(false);
 
 static const poptOption optionsTable[] =
 {
-    { "listDevices", 'l', POPT_ARG_VAL, &listAllDevices, 'l', "list all OpenCL devices", nullptr },
+    { "listDevices", 'l', POPT_ARG_VAL, &listAllDevices, 'l',
+        "list all OpenCL devices", nullptr },
     { "devicesList", 'L', POPT_ARG_STRING, &devicesListString, 'L',
         "specify list of devices in form: 'platformId:deviceId,....'", "DEVICELIST" },
     { "choosenDevices", 'c', POPT_ARG_VAL, &listChoosenDevices, 'c',
@@ -127,6 +131,7 @@ static const poptOption optionsTable[] =
     { "dontWait", 'w', POPT_ARG_VAL, &dontWait, 'w', "dont wait few seconds", nullptr },
     { "exitIfAllFails", 'f', POPT_ARG_VAL, &exitIfAllFails, 'f',
         "exit only if all devices fails at computation", nullptr },
+    { "version", 'V', POPT_ARG_VAL, &printVersion, 'V', "print program version", nullptr },
     POPT_AUTOHELP
     { nullptr, 0, 0, nullptr, 0 }
 };
@@ -1134,8 +1139,10 @@ int main(int argc, const char** argv)
         return 1;
     }
     
-    std::cout << "CLGPUStress 0.0.4.2 by Mateusz Szpakowski. "
+    std::cout << "CLGPUStress " PROGRAM_VERSION " by Mateusz Szpakowski. "
         "Program is distributed under terms of the GPLv2." << std::endl;
+    if (printVersion)
+        return 0; // that's all
     
     if (listAllDevices)
     {
