@@ -611,7 +611,10 @@ GPUStressTester::~GPUStressTester()
 
 void GPUStressTester::buildKernel(cxuint thisKitersNum, cxuint thisBlocksNum,
                 bool alwaysPrintBuildLog)
-{
+{   // freeing resources
+    clKernel = cl::Kernel();
+    clProgram = cl::Program();
+    
     cl::Program::Sources clSources;
     clSources.push_back(std::make_pair(clKernelSource, clKernelSourceSize));
     clProgram = cl::Program(clContext, clSources);
@@ -631,7 +634,8 @@ void GPUStressTester::buildKernel(cxuint thisKitersNum, cxuint thisBlocksNum,
     }
     catch(const cl::Error& error)
     {
-        if (!failedWithOptOptions && error.err() == CL_INVALID_BUILD_OPTIONS)
+        if (!failedWithOptOptions && (error.err() == CL_INVALID_BUILD_OPTIONS ||
+            error.err() == CL_BUILD_PROGRAM_FAILURE))
         {   // try with no opt options
             {   /* fix for POCL (its needed???) */
                 std::lock_guard<std::mutex> l(stdOutputMutex);
