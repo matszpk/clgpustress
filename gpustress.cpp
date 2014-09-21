@@ -1258,7 +1258,7 @@ int main(int argc, const char** argv)
             "THAN ANY FURMARK STRESS. PLEASE USE THIS PROGRAM VERY CAREFULLY!!!\n"
             "RECOMMEND TO RUN THIS PROGRAM ON STOCK PARAMETERS "
             "(CLOCKS, VOLTAGES,\nESPECIALLY MEMORY CLOCK).\n"
-            "TO TERMINATE THIS PROGRAM PLEASE USE STANDARD CTRL-C.\n" << std::endl;
+            "TO TERMINATE THIS PROGRAM PLEASE USE STANDARD 'CTRL-C' KEY COMBINATION.\n" << std::endl;
         if (exitIfAllFails && choosenCLDevices.size() > 1)
             std::cout << "PROGRAM EXITS ONLY WHEN ALL DEVICES FAILS.\n"
                 "PLEASE TRACE OUTPUT TO FIND FAILED DEVICE AND REACT!\n" << std::endl;
