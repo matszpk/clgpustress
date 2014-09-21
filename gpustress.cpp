@@ -77,6 +77,7 @@ public:
 extern const char* clKernel1Source;
 extern const char* clKernel2Source;
 extern const char* clKernelPWSource;
+extern const char* clKernelPW2Source;
 
 static int useCPUs = 0;
 static int useGPUs = 0;
@@ -120,7 +121,7 @@ static const poptOption optionsTable[] =
         "use NVIDIA platform", nullptr },
     { "useIntel", 'E', POPT_ARG_VAL, &useIntelPlatform, 'L', "use Intel platform", nullptr },
     { "testType", 'T', POPT_ARG_STRING, &builtinKernelsString, 'T',
-        "choose OpenCL test type (kernel)", "NUMLIST [0-2]" },
+        "choose OpenCL test type (kernel)", "NUMLIST [0-3]" },
     { "inAndOut", 'I', POPT_ARG_STRING|POPT_ARGFLAG_OPTIONAL, &inputAndOutputsString, 'I',
       "use input and output buffers (doubles memory reqs.)", "BOOLLIST" },
     { "workFactor", 'W', POPT_ARG_STRING, &workFactorsString, 'W',
@@ -379,7 +380,7 @@ static std::vector<GPUStressConfig> collectGPUStressConfigs(cxuint devicesNum,
             throw MyException("BlocksNum is zero or out of range");
         if (config.workFactor == 0)
             throw MyException("WorkFactor is zero");
-        if (config.builtinKernel > 2)
+        if (config.builtinKernel > 3)
             throw MyException("BuiltinKernel out of range");
         if (config.kitersNum > 100)
             throw MyException("KitersNum out of range");
@@ -511,6 +512,10 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
             break;
         case 2:
             clKernelSource = clKernelPWSource;
+            usePolyWalker = true;
+            break;
+        case 3:
+            clKernelSource = clKernelPW2Source;
             usePolyWalker = true;
             break;
         default:

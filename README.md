@@ -89,9 +89,10 @@ test for device for performance and memory bandwidth.
 
 Currently gpustress has 3 tests:
 
-- 0 - standard with local memory checking
+- 0 - standard with local memory checking (for Radeon HD 7850 the most effective test)
 - 1 - standard without local memory checking
-- 2 - polynomial walking
+- 2 - polynomial walking (for Radeon HD 7850 the less effective)
+- 3 - polynomial walking with local memory (for Radeon HD 7850 the less effective)
 
 #### Parameters for the tests
 
