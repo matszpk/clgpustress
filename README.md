@@ -85,9 +85,9 @@ Examples of usage:
 If option '-j' is not specified then program automatically calibrates
 test for device for performance and memory bandwidth.
 
-#### Supported tests (BuiltinKernels)
+#### Supported tests
 
-Currently gpustress has 3 tests (builtinKernels):
+Currently gpustress has 3 tests:
 
 - 0 - standard with local memory checking
 - 1 - standard without local memory checking
@@ -102,7 +102,7 @@ Now you can specify following parameters for tests:
 - passIters - number of iterations of the execution kernel in single pass
 - kitersNum - number of iteration of core computation within single memory access
 - inputAndOutput - enables input/output mode
-- builtinKernel - kernel of the test (0-2). tests are described in supported tests section
+- testType - test (builtin kernel) (0-2). tests are described in supported tests section
 - groupSize - work group size (by default is maxWorkGroupSize)
 
 You can choose these parameter by using following options:
@@ -111,7 +111,7 @@ You can choose these parameter by using following options:
 - '-B' or '--blocksNum' - blocksNum
 - '-S' or '--passIters' - passIters
 - '-j' or '--kitersNum' - kitersNum
-- '-T' or '--builtin' - builtinKernel'
+- '-T' or '--testType' - test type (builtin kernel)
 - '-g' or '--groupSize' - groupSize
 
 #### Specifiyng devices to testing:
@@ -156,7 +156,7 @@ chooses first device from first platform; second,third,fourth device from second
 In easiest way, you can choose one value for all devices by providing a single value.
 
 You can choose different values for particular devices for following parameters:
-workFactor, blocksNum, passItersNum, kitersNum, builtinKernel, inputAndOutput.
+workFactor, blocksNum, passItersNum, kitersNum, testType, inputAndOutput.
 Values are in list that is comma separated, excepts inputAndOutput where is sequence of
 the characters ('1','Y','T' - enables; '0','N','F' - disables). Moreover, parameter of '-I' option
 is optional (if not specified program assumes that inputAndOutput modes will be
@@ -166,7 +166,7 @@ Examples:
 
 gpustress -L 0:0,0:1 -W 512,4 -B 2 -T 1 -I YN
 
-chooses for all devices blocksNum=2, builtinKernel=1, for first device: workFactor=512, inAndOut=yes
+chooses for all devices blocksNum=2, testType=1, for first device: workFactor=512, inAndOut=yes
 ; for second device: workFactor=4, inAndOut=no.
 
 If value's list will be shorter than list of the choosen devices then

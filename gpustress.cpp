@@ -119,8 +119,8 @@ static const poptOption optionsTable[] =
     { "useNVIDIA", 'N', POPT_ARG_VAL, &useNVIDIAPlatform, 'N',
         "use NVIDIA platform", nullptr },
     { "useIntel", 'E', POPT_ARG_VAL, &useIntelPlatform, 'L', "use Intel platform", nullptr },
-    { "builtin", 'T', POPT_ARG_STRING, &builtinKernelsString, 'T',
-        "choose OpenCL builtin kernel", "NUMLIST [0-3]" },
+    { "testType", 'T', POPT_ARG_STRING, &builtinKernelsString, 'T',
+        "choose OpenCL test type (kernel)", "NUMLIST [0-2]" },
     { "inAndOut", 'I', POPT_ARG_STRING|POPT_ARGFLAG_OPTIONAL, &inputAndOutputsString, 'I',
       "use input and output buffers (doubles memory reqs.)", "BOOLLIST" },
     { "workFactor", 'W', POPT_ARG_STRING, &workFactorsString, 'W',
@@ -322,7 +322,7 @@ static std::vector<GPUStressConfig> collectGPUStressConfigs(cxuint devicesNum,
     if (kitersNumVec.size() > devicesNum)
         throw MyException("kitersNum list is too long");
     if (builtinKernelVec.size() > devicesNum)
-        throw MyException("BuiltinKernel list is too long");
+        throw MyException("TestType list is too long");
     if (inAndOutVec.size() > devicesNum)
         throw MyException("InputAndOutput list is too long");
     
@@ -381,7 +381,7 @@ static std::vector<GPUStressConfig> collectGPUStressConfigs(cxuint devicesNum,
             throw MyException("WorkFactor is zero");
         if (config.builtinKernel > 2)
             throw MyException("BuiltinKernel out of range");
-        if (config.kitersNum > 30)
+        if (config.kitersNum > 100)
             throw MyException("KitersNum out of range");
         outConfigs[i] = config;
     }
@@ -496,8 +496,8 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
                 ", blocksNum=" << blocksNum <<
                 ",\n    computeUnits=" << maxComputeUnits <<
                 ", groupSize=" << groupSize <<
-                ", passIters=" << passItersNum << 
-                ", builtinKernel=" << config.builtinKernel <<
+                ", passIters=" << passItersNum <<
+                ", testType=" << config.builtinKernel <<
                 ",\n    inputAndOutput=" << (useInputAndOutput?"yes":"no") << std::endl;
     }
     
@@ -730,7 +730,7 @@ void GPUStressTester::calibrateKernel()
         
         cl::CommandQueue profCmdQueue(clContext, clDevice, CL_QUEUE_PROFILING_ENABLE);
         
-        for (cxuint curKitersNum = 1; curKitersNum <= 30; curKitersNum++)
+        for (cxuint curKitersNum = 1; curKitersNum <= 40; curKitersNum++)
         {
             buildKernel(curKitersNum, blocksNum, false);
             
