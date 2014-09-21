@@ -90,6 +90,7 @@ static int listChoosenDevices = 0;
 static const char* devicesListString = nullptr;
 static const char* builtinKernelsString = nullptr;
 static const char* inputAndOutputsString = nullptr;
+static const char* groupSizesString = nullptr;
 static const char* workFactorsString = nullptr;
 static const char* blocksNumsString = nullptr;
 static const char* passItersNumsString = nullptr;
@@ -119,11 +120,13 @@ static const poptOption optionsTable[] =
         "use NVIDIA platform", nullptr },
     { "useIntel", 'E', POPT_ARG_VAL, &useIntelPlatform, 'L', "use Intel platform", nullptr },
     { "builtin", 'T', POPT_ARG_STRING, &builtinKernelsString, 'T',
-        "choose OpenCL builtin kernel", "NUMLIST [0-2]" },
+        "choose OpenCL builtin kernel", "NUMLIST [0-3]" },
     { "inAndOut", 'I', POPT_ARG_STRING|POPT_ARGFLAG_OPTIONAL, &inputAndOutputsString, 'I',
       "use input and output buffers (doubles memory reqs.)", "BOOLLIST" },
     { "workFactor", 'W', POPT_ARG_STRING, &workFactorsString, 'W',
         "set workSize=factor*compUnits*grpSize", "FACTORLIST" },
+    { "groupSize", 'g', POPT_ARG_STRING, &groupSizesString, 'g',
+        "set group size", "GROUPSIZELIST" },
     { "blocksNum", 'B', POPT_ARG_STRING, &blocksNumsString, 'B', "blocks number", "BLOCKSLIST" },
     { "passIters", 'S', POPT_ARG_STRING, &passItersNumsString, 'S', "pass iterations num",
         "ITERATIONSLIST" },
@@ -294,6 +297,7 @@ static const float examplePoly[5] =
 struct GPUStressConfig
 {
     cxuint passItersNum;
+    cxuint groupSize;
     cxuint workFactor;
     cxuint blocksNum;
     cxuint kitersNum;
@@ -302,12 +306,15 @@ struct GPUStressConfig
 };
 
 static std::vector<GPUStressConfig> collectGPUStressConfigs(cxuint devicesNum,
-        const std::vector<cxuint>& passItersNumVec, const std::vector<cxuint>& workFactorVec,
+        const std::vector<cxuint>& passItersNumVec, const std::vector<cxuint>& groupSizeVec,
+        const std::vector<cxuint>& workFactorVec,
         const std::vector<cxuint>& blocksNumVec, const std::vector<cxuint>& kitersNumVec,
         const std::vector<cxuint>& builtinKernelVec, const std::vector<bool>& inAndOutVec)
 {
     if (passItersNumVec.size() > devicesNum)
         throw MyException("PassItersNum list is too long");
+    if (groupSizeVec.size() > devicesNum)
+        throw MyException("GroupSize list is too long");
     if (workFactorVec.size() > devicesNum)
         throw MyException("WorkFactor list is too long");
     if (blocksNumVec.size() > devicesNum)
@@ -325,25 +332,31 @@ static std::vector<GPUStressConfig> collectGPUStressConfigs(cxuint devicesNum,
     {
         GPUStressConfig config;
         if (!passItersNumVec.empty())
-            config.passItersNum = (passItersNumVec.size() > i) ? passItersNumVec[i] : 
+            config.passItersNum = (passItersNumVec.size() > i) ? passItersNumVec[i] :
                     passItersNumVec.back();
         else // default
             config.passItersNum = 32;
         
+        if (!groupSizeVec.empty())
+            config.groupSize = (groupSizeVec.size() > i) ? groupSizeVec[i] :
+                    groupSizeVec.back();
+        else // default
+            config.groupSize = 0;
+        
         if (!workFactorVec.empty())
-            config.workFactor = (workFactorVec.size() > i) ? workFactorVec[i] : 
+            config.workFactor = (workFactorVec.size() > i) ? workFactorVec[i] :
                     workFactorVec.back();
         else // default
             config.workFactor = 256;
         
         if (!blocksNumVec.empty())
-            config.blocksNum = (blocksNumVec.size() > i) ? blocksNumVec[i] : 
+            config.blocksNum = (blocksNumVec.size() > i) ? blocksNumVec[i] :
                     blocksNumVec.back();
         else // default
             config.blocksNum = 2;
         
         if (!kitersNumVec.empty())
-            config.kitersNum = (kitersNumVec.size() > i) ? kitersNumVec[i] : 
+            config.kitersNum = (kitersNumVec.size() > i) ? kitersNumVec[i] :
                     kitersNumVec.back();
         else // default
             config.kitersNum = 0;
@@ -458,7 +471,10 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
     clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
     
     cl_uint maxComputeUnits;
-    clDevice.getInfo(CL_DEVICE_MAX_WORK_GROUP_SIZE, &groupSize);
+    if (config.groupSize == 0)
+        clDevice.getInfo(CL_DEVICE_MAX_WORK_GROUP_SIZE, &groupSize);
+    else // from config
+        groupSize = config.groupSize;
     clDevice.getInfo(CL_DEVICE_MAX_COMPUTE_UNITS, &maxComputeUnits);
     
     workSize = size_t(maxComputeUnits)*groupSize*workFactor;
@@ -478,11 +494,11 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
                 ", memory=" << devMemReqs << " MB"
                 ", workFactor=" << workFactor <<
                 ", blocksNum=" << blocksNum <<
-                ",\n      computeUnits=" << maxComputeUnits <<
+                ",\n    computeUnits=" << maxComputeUnits <<
                 ", groupSize=" << groupSize <<
                 ", passIters=" << passItersNum << 
                 ", builtinKernel=" << config.builtinKernel <<
-                ",\n      inputAndOutput=" << (useInputAndOutput?"yes":"no") << std::endl;
+                ",\n    inputAndOutput=" << (useInputAndOutput?"yes":"no") << std::endl;
     }
     
     switch(config.builtinKernel)
@@ -640,6 +656,7 @@ void GPUStressTester::buildKernel(cxuint thisKitersNum, cxuint thisBlocksNum,
     catch(const cl::Error& error)
     {
         if (!failedWithOptOptions && (error.err() == CL_INVALID_BUILD_OPTIONS ||
+            // checks also CL_BUILD_PROGRAM_FAILURE for nVidia workaround (important)
             error.err() == CL_BUILD_PROGRAM_FAILURE))
         {   // try with no opt options
             {   /* fix for POCL (its needed???) */
@@ -681,7 +698,7 @@ void GPUStressTester::buildKernel(cxuint thisKitersNum, cxuint thisBlocksNum,
         if ((groupSize&((1ULL<<shifts)-1ULL)) != 0)
             throw MyException("Cant determine new group size!");
         
-        groupSize = groupSize>>shifts;
+        groupSize >>= shifts;
         workFactor <<= shifts;
         {
             std::lock_guard<std::mutex> l(stdOutputMutex);
@@ -1181,6 +1198,8 @@ int main(int argc, const char** argv)
                 inputAndOutputsString = "1";
             std::vector<cxuint> workFactors =
                     parseCmdUIntList(workFactorsString, "work factors");
+            std::vector<cxuint> groupSizes =
+                    parseCmdUIntList(groupSizesString, "group sizes");
             std::vector<cxuint> passItersNums =
                     parseCmdUIntList(passItersNumsString, "passIters numbers");
             std::vector<cxuint> blocksNums =
@@ -1193,7 +1212,7 @@ int main(int argc, const char** argv)
                     parseCmdBoolList(inputAndOutputsString, "inputAndOutputs");
             
             gpuStressConfigs = collectGPUStressConfigs(choosenCLDevices.size(),
-                    passItersNums, workFactors, blocksNums, kitersNums,
+                    passItersNums, groupSizes, workFactors, blocksNums, kitersNums,
                     builtinKernels, inputAndOutputs);
         }
         

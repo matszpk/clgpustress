@@ -22,7 +22,6 @@
 kernel void gpuStress(uint n, const global float4* input, global float4* output)
 {
     size_t gid = get_global_id(0);
-    size_t lid = get_local_id(0);
     
     for (uint i = 0; i < BLOCKSNUM; i++)
     {
