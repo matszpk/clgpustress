@@ -1,0 +1,21 @@
+List of changes:
+
+Version 0.0.5  (21.09.2014):
+- added new test (polynomial walking with local memory)
+- added '-g' ('--groupSize') option to set work group size
+- prints list of the supported tests at printing help
+- renames builtinKernels to testTypes
+- improved help message
+- extends calibration to kitersNum=40
+
+Version 0.0.4.3 (20.09.2014):
+- added '-V' option (print version)
+- fix for NVIDIA drivers
+
+Version 0.0.4.2 (20.09.2014):
+- fixed overflow for elapsed time
+- fixes for MSVC C/C++ Compiler
+
+Version 0.0.4.1 (19.09.2014):
+- makes parameter of '-I' option as optional
+- fixed fatal error handling
