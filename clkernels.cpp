@@ -17,6 +17,15 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+const char* testDescsTable[] =
+{
+    "Standard test",
+    "Standard test with local memory",
+    "Polynomial walking",
+    "Polynomial walking with local memory",
+    nullptr
+};
+
 const char* clKernel1Source =
 "#pragma OPENCL FP_CONTRACT OFF\n"
 "\n"

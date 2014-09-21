@@ -47,7 +47,7 @@
 #  define SIZE_T_SPEC "%zu"
 #endif
 
-#define PROGRAM_VERSION "0.0.4.3"
+#define PROGRAM_VERSION "0.0.5"
 
 typedef unsigned short cxushort;
 typedef signed short cxshort;
@@ -79,6 +79,8 @@ extern const char* clKernel2Source;
 extern const char* clKernelPWSource;
 extern const char* clKernelPW2Source;
 
+extern const char* testDescsTable[];
+
 static int useCPUs = 0;
 static int useGPUs = 0;
 static int useAccelerators = 0;
@@ -98,6 +100,8 @@ static const char* passItersNumsString = nullptr;
 static const char* kitersNumsString = nullptr;
 static int dontWait = 0;
 static int exitIfAllFails = 0;
+static int printHelp = 0;
+static int printUsage = 0;
 static int printVersion = 0;
 
 static std::mutex stdOutputMutex;
@@ -107,36 +111,39 @@ static std::atomic<bool> stopAllStressTesters(false);
 static const poptOption optionsTable[] =
 {
     { "listDevices", 'l', POPT_ARG_VAL, &listAllDevices, 'l',
-        "list all OpenCL devices", nullptr },
+        "List all OpenCL devices", nullptr },
     { "devicesList", 'L', POPT_ARG_STRING, &devicesListString, 'L',
-        "specify list of devices in form: 'platformId:deviceId,....'", "DEVICELIST" },
+        "Specify list of devices in form: 'platformId:deviceId,....'", "DEVICELIST" },
     { "choosenDevices", 'c', POPT_ARG_VAL, &listChoosenDevices, 'c',
-        "list choosen OpenCL devices", nullptr },
-    { "useCPUs", 'C', POPT_ARG_VAL, &useCPUs, 'C', "use all CPU devices", nullptr },
-    { "useGPUs", 'G', POPT_ARG_VAL, &useGPUs, 'G', "use all GPU devices", nullptr },
+        "List choosen OpenCL devices", nullptr },
+    { "useCPUs", 'C', POPT_ARG_VAL, &useCPUs, 'C', "Use all CPU devices", nullptr },
+    { "useGPUs", 'G', POPT_ARG_VAL, &useGPUs, 'G', "Use all GPU devices", nullptr },
     { "useAccs", 'a', POPT_ARG_VAL, &useAccelerators, 'a',
-        "use all accelerator devices", nullptr },
-    { "useAMD", 'A', POPT_ARG_VAL, &useAMDPlatform, 'A', "use AMD platform", nullptr },
+        "Use all accelerator devices", nullptr },
+    { "useAMD", 'A', POPT_ARG_VAL, &useAMDPlatform, 'A', "Use AMD platform", nullptr },
     { "useNVIDIA", 'N', POPT_ARG_VAL, &useNVIDIAPlatform, 'N',
-        "use NVIDIA platform", nullptr },
-    { "useIntel", 'E', POPT_ARG_VAL, &useIntelPlatform, 'L', "use Intel platform", nullptr },
+        "Use NVIDIA platform", nullptr },
+    { "useIntel", 'E', POPT_ARG_VAL, &useIntelPlatform, 'L', "Use Intel platform", nullptr },
     { "testType", 'T', POPT_ARG_STRING, &builtinKernelsString, 'T',
-        "choose OpenCL test type (kernel)", "NUMLIST [0-3]" },
+        "Choose test type (kernel)", "NUMLIST [0-3]" },
     { "inAndOut", 'I', POPT_ARG_STRING|POPT_ARGFLAG_OPTIONAL, &inputAndOutputsString, 'I',
-      "use input and output buffers (doubles memory reqs.)", "BOOLLIST" },
+        "Use input and output buffers (doubles memory reqs.)", "BOOLLIST" },
     { "workFactor", 'W', POPT_ARG_STRING, &workFactorsString, 'W',
-        "set workSize=factor*compUnits*grpSize", "FACTORLIST" },
+        "Set workSize=factor*compUnits*grpSize", "FACTORLIST" },
     { "groupSize", 'g', POPT_ARG_STRING, &groupSizesString, 'g',
-        "set group size", "GROUPSIZELIST" },
-    { "blocksNum", 'B', POPT_ARG_STRING, &blocksNumsString, 'B', "blocks number", "BLOCKSLIST" },
-    { "passIters", 'S', POPT_ARG_STRING, &passItersNumsString, 'S', "pass iterations num",
-        "ITERATIONSLIST" },
-    { "kitersNum", 'j', POPT_ARG_STRING, &kitersNumsString, 'j', "kitersNum", "ITERATIONSLIST" },
-    { "dontWait", 'w', POPT_ARG_VAL, &dontWait, 'w', "dont wait few seconds", nullptr },
+        "Set group size", "GROUPSIZELIST" },
+    { "blocksNum", 'B', POPT_ARG_STRING, &blocksNumsString, 'B',
+        "Set blocks number", "BLOCKSLIST" },
+    { "passIters", 'S', POPT_ARG_STRING, &passItersNumsString, 'S',
+        "Set pass iterations num", "ITERATIONSLIST" },
+    { "kitersNum", 'j', POPT_ARG_STRING, &kitersNumsString, 'j',
+        "Set kernel iterations number per memory access", "ITERATIONSLIST" },
+    { "dontWait", 'w', POPT_ARG_VAL, &dontWait, 'w', "Dont wait few seconds", nullptr },
     { "exitIfAllFails", 'f', POPT_ARG_VAL, &exitIfAllFails, 'f',
-        "exit only if all devices fails at computation", nullptr },
-    { "version", 'V', POPT_ARG_VAL, &printVersion, 'V', "print program version", nullptr },
-    POPT_AUTOHELP
+        "Exit only if all devices fails at computation", nullptr },
+    { "version", 'V', POPT_ARG_VAL, &printVersion, 'V', "Print program version", nullptr },
+    { "help", '?', POPT_ARG_VAL, &printHelp, '?', "Show this help message", nullptr },
+    { "usage", 0, POPT_ARG_VAL, &printUsage, 'u', "Display brief usage message", nullptr },
     { nullptr, 0, 0, nullptr, 0 }
 };
 
@@ -1164,7 +1171,30 @@ int main(int argc, const char** argv)
     std::cout << "CLGPUStress " PROGRAM_VERSION " by Mateusz Szpakowski. "
         "Program is distributed under terms of the GPLv2." << std::endl;
     if (printVersion)
+    {
+        poptFreeContext(optsContext);
         return 0; // that's all
+    }
+    if (printHelp)
+    {
+        std::cout << std::endl;
+        poptPrintHelp(optsContext, stdout, 0);
+        poptFreeContext(optsContext);
+        fflush(stdout);
+        
+        std::cout << "\nList of the supported test types "
+                "(test can be set by using '-T' option):" << std::endl;
+        for(cxuint i = 0; testDescsTable[i] != nullptr; i++)
+            std::cout << "  " << i << ": " << testDescsTable[i] << std::endl;
+        return 0;
+    }
+    if (printUsage)
+    {
+        std::cout << std::endl;
+        poptPrintUsage(optsContext, stdout, 0);
+        poptFreeContext(optsContext);
+        return 0;
+    }
     
     if (listAllDevices)
     {
@@ -1195,6 +1225,7 @@ int main(int argc, const char** argv)
         if (listChoosenDevices != 0)
         {
             listChoosenCLDevices(choosenCLDevices);
+            poptFreeContext(optsContext);
             return 0;
         }
         

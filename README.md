@@ -1,7 +1,7 @@
 clgpustress
 ===========
 
-Heavy OpenCL GPU stress tester (version 0.0.4.3)
+Heavy OpenCL GPU stress tester (version 0.0.5)
 
 ### IMPORTANT CAUTION!!!!!
 
@@ -126,20 +126,20 @@ gpustress prints all OpenCL devices, also prints their the platform id and the d
 
 GPUStress allows to select devices from specified the OpenCL platform, by using following options:
 
-- '-A' or '--useAMD' - choose only devices from AMD (AMDAPP) platform
-- '-N' or '--useNVIDIA' - choose only devices from NVIDIA (NVIDIA CUDA) platform
-- '-E' or '--useIntel' - choose only devices from Intel platform
+- '-A' or '--useAMD' - choose devices from AMD (AMDAPP) platform
+- '-N' or '--useNVIDIA' - choose devices from NVIDIA (NVIDIA CUDA) platform
+- '-E' or '--useIntel' - choose devices from Intel platform
 
 You can combime these options to choose many platforms.
 By default gpustress chooses devices from all  platforms.
 
 Moreover gpustress allows to choose devices of particular type:
 
-- '-C' or '--useCPUs' - choose only CPU devices
-- '-G' or '--useGPUs' - choose only GPU devices
-- '-a' or '--useAccs' - choose only accelerators
+- '-C' or '--useCPUs' - choose CPU devices
+- '-G' or '--useGPUs' - choose GPU devices
+- '-a' or '--useAccs' - choose accelerators
 
-You can combine these option to choose devices of many types.
+You can combine these options to choose devices of many types.
 By default gpustresss chooses only GPU devices.
 
 The custom devices are not supported, because doesn't supports for the OpenCL compiler.
