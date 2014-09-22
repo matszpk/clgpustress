@@ -561,9 +561,6 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
             initialValues[i] = (float(random())/float(
                         std::mt19937_64::max()-std::mt19937_64::min()))*2e6 - 1e6;
     }
-    /*for (size_t i = 0; i < workSize<<5; i++)
-        std::cout << "in=" << i << ":" << initialValues[i] << '\n';
-    std::cout.flush();*/
     
     calibrateKernel();
     
@@ -791,13 +788,6 @@ void GPUStressTester::calibrateKernel()
                 bestPerf = currentPerf;
                 bestBandwidth = currentBandwidth;
             }
-            /*{
-                std::lock_guard<std::mutex> l(stdOutputMutex);
-                std::cout << "Choose for kernel \n  " <<
-                    "#" << id << " " << platformName << ":" << deviceName << "\n"
-                    "  BestKitersNum: " << curKitersNum << ", Bandwidth: " << currentBandwidth <<
-                    " GB/s, Performance: " << currentPerf << " GFLOPS" << std::endl;
-            }*/
         }
         /* if choosen we compile real code */
         {
