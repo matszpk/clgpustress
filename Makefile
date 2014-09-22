@@ -21,7 +21,7 @@ gpustress: gpustress.o clkernels.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCDIRS) -o $@ $^ $(LIBDIRS) $(LIBS)
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCDIRS) -c -o $@ $^
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCDIRS) -c -o $@ $<
 
 clean:
 	rm -f *.o gpustress
