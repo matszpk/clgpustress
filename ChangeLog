@@ -1,4 +1,8 @@
-List of changes:
+List of the changes:
+
+Version 0.0.5.1  (22.09.2014):
+- fixed fatal bug (unitialized variable)
+- removed obsolete optimization flag for a kernel building
 
 Version 0.0.5  (21.09.2014):
 - added new test (polynomial walking with local memory)
