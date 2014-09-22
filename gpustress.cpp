@@ -47,7 +47,7 @@
 #  define SIZE_T_SPEC "%zu"
 #endif
 
-#define PROGRAM_VERSION "0.0.5"
+#define PROGRAM_VERSION "0.0.5.1"
 
 typedef unsigned short cxushort;
 typedef signed short cxshort;
@@ -447,8 +447,6 @@ private:
     void printStatus(cxuint passNum);
     void throwFailedComputations(cxuint passNum);
     
-    bool failedWithOptOptions;
-    
     void buildKernel(cxuint kitersNum, cxuint blocksNum, bool alwaysPrintBuildLog);
     void calibrateKernel();
 public:
@@ -469,10 +467,9 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
         id(_id), clDevice(_clDevice), workFactor(config.workFactor),
         blocksNum(config.blocksNum), passItersNum(config.passItersNum),
         kitersNum(config.kitersNum), useInputAndOutput(config.inputAndOutput),
-        initialValues(nullptr), toCompare(nullptr)
+        initialValues(nullptr), toCompare(nullptr), results(nullptr)
 {
     failed = false;
-    failedWithOptOptions = false;
     usePolyWalker = false;
     
     clPlatform.getInfo(CL_PLATFORM_NAME, &platformName);
@@ -655,44 +652,15 @@ void GPUStressTester::buildKernel(cxuint thisKitersNum, cxuint thisBlocksNum,
     char buildOptions[128];
     try
     {
-        if (!failedWithOptOptions)
-            snprintf(buildOptions, 128, "-O3 -DGROUPSIZE=" SIZE_T_SPEC
-                "U -DKITERSNUM=%uU -DBLOCKSNUM=%uU",
-                groupSize, thisKitersNum, thisBlocksNum);
-        else //
-            snprintf(buildOptions, 128, "-DGROUPSIZE=" SIZE_T_SPEC
+        snprintf(buildOptions, 128, "-DGROUPSIZE=" SIZE_T_SPEC
                 "U -DKITERSNUM=%uU -DBLOCKSNUM=%uU",
                 groupSize, thisKitersNum, thisBlocksNum);
         clProgram.build(buildOptions);
     }
     catch(const cl::Error& error)
     {
-        if (!failedWithOptOptions && (error.err() == CL_INVALID_BUILD_OPTIONS ||
-            // checks also CL_BUILD_PROGRAM_FAILURE for nVidia workaround (important)
-            error.err() == CL_BUILD_PROGRAM_FAILURE))
-        {   // try with no opt options
-            {   /* fix for POCL (its needed???) */
-                std::lock_guard<std::mutex> l(stdOutputMutex);
-                std::cout <<
-                    "Trying to compile without optimizing compiler flags..." << std::endl;
-            }
-            failedWithOptOptions = true;
-            snprintf(buildOptions, 128, "-DGROUPSIZE=" SIZE_T_SPEC
-                    "U -DKITERSNUM=%uU -DBLOCKSNUM=%uU",
-                    groupSize, thisKitersNum, thisBlocksNum);
-            try
-            { clProgram.build(buildOptions); }
-            catch(const cl::Error& error)
-            {
-                printBuildLog();
-                throw;
-            }
-        }
-        else
-        {
-            printBuildLog();
-            throw;
-        }
+        printBuildLog();
+        throw;
     }
     if (alwaysPrintBuildLog)
         printBuildLog();
@@ -1199,9 +1167,10 @@ int main(int argc, const char** argv)
     if (listAllDevices)
     {
         listCLDevices();
+        poptFreeContext(optsContext);
         return 0;
     }
-        
+    
     if (!useGPUs && !useCPUs)
         useGPUs = 1;
     if (!useAMDPlatform && !useNVIDIAPlatform && !useIntelPlatform)

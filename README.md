@@ -1,7 +1,7 @@
 clgpustress
 ===========
 
-Heavy OpenCL GPU stress tester (version 0.0.5)
+Heavy OpenCL GPU stress tester (version 0.0.5.1)
 
 ### IMPORTANT CAUTION!!!!!
 
@@ -63,7 +63,7 @@ device memory. By default program choose workGroupSize = maxWorkGroupSize.
 You can get maxComputeUnits and maxWorkGroupSize from 'clinfo' or from other
 OpenCL diagnostics utility. 
 
-Option '-I' (or '--inAndOut') chooses standard method with decoupled input and output
+The '-I' (or '--inAndOut') option chooses standard method with decoupled input and output
 which requires double size of memory on the device.
 By default program uses single buffer for input and output.
 
@@ -104,7 +104,7 @@ Now you can specify following parameters for tests:
 - kitersNum - number of iteration of core computation within single memory access
 - inputAndOutput - enables input/output mode
 - testType - test (builtin kernel) (0-2). tests are described in supported tests section
-- groupSize - work group size (by default is maxWorkGroupSize)
+- groupSize - work group size (by default or if zero, program chooses maxWorkGroupSize)
 
 You can choose these parameter by using following options:
 
@@ -114,6 +114,11 @@ You can choose these parameter by using following options:
 - '-j' or '--kitersNum' - kitersNum
 - '-T' or '--testType' - test type (builtin kernel)
 - '-g' or '--groupSize' - groupSize
+
+For groupSize, if value is zero or is not specified then program
+chooses maxWorkGroupSize for device.
+For kitersNum, if value is zero of is not specified then program
+calibates kernel for a memory bandwidth and a performance.
 
 #### Specifiyng devices to testing:
 
