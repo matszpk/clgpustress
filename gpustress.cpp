@@ -47,7 +47,7 @@
 #  define SIZE_T_SPEC "%zu"
 #endif
 
-#define PROGRAM_VERSION "0.0.5.1"
+#define PROGRAM_VERSION "0.0.5.2"
 
 typedef unsigned short cxushort;
 typedef signed short cxshort;
