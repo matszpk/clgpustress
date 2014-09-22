@@ -463,12 +463,14 @@ public:
 };
 
 GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Device& _clDevice,
-        const GPUStressConfig& config) :
-        id(_id), clDevice(_clDevice), workFactor(config.workFactor),
+        const GPUStressConfig& config)
+try :
+        id(_id), workFactor(config.workFactor),
         blocksNum(config.blocksNum), passItersNum(config.passItersNum),
         kitersNum(config.kitersNum), useInputAndOutput(config.inputAndOutput),
         initialValues(nullptr), toCompare(nullptr), results(nullptr)
-{
+{       // set clDevice, after because can fails and pointers to free must be set
+    clDevice = _clDevice;
     failed = false;
     usePolyWalker = false;
     
@@ -627,6 +629,13 @@ GPUStressTester::GPUStressTester(cxuint _id, cl::Platform& clPlatform, cl::Devic
     /*for (size_t i = 0; i < bufItemsNum; i++)
         std::cout << "out=" << i << ":" << toCompare[i] << '\n';
     std::cout.flush();*/
+}
+catch(...)
+{
+    delete[] toCompare;
+    delete[] initialValues;
+    delete[] results;
+    throw;
 }
 
 GPUStressTester::~GPUStressTester()
