@@ -1,6 +1,9 @@
 List of the changes:
 
-Version 0.0.5.1  (22.09.2014):
+Version 0.0.5.2 (22.09.2014):
+- fixes serious memory leak
+
+Version 0.0.5.1 (22.09.2014):
 - fixed fatal bug (unitialized variable)
 - removed obsolete optimization flag for a kernel building
 
