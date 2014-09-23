@@ -458,7 +458,8 @@ private:
     void printStatus(cxuint passNum);
     void throwFailedComputations(cxuint passNum);
     
-    void buildKernel(cxuint kitersNum, cxuint blocksNum, bool alwaysPrintBuildLog);
+    void buildKernel(cxuint kitersNum, cxuint blocksNum, bool alwaysPrintBuildLog,
+         bool whenCalibrates);
     void calibrateKernel();
 public:
     GPUStressTester(cxuint id, cl::Platform& clPlatform, cl::Device& clDevice,
@@ -657,7 +658,7 @@ GPUStressTester::~GPUStressTester()
 }
 
 void GPUStressTester::buildKernel(cxuint thisKitersNum, cxuint thisBlocksNum,
-                bool alwaysPrintBuildLog)
+                bool alwaysPrintBuildLog, bool whenCalibrates)
 {   // freeing resources
     clKernel = cl::Kernel();
     clProgram = cl::Program();
@@ -699,12 +700,19 @@ void GPUStressTester::buildKernel(cxuint thisKitersNum, cxuint thisBlocksNum,
         workFactor <<= shifts;
         {
             std::lock_guard<std::mutex> l(stdOutputMutex);
+            if (whenCalibrates)
+                std::cout << std::endl;
             std::cout << "Fixed groupSize for\n  " <<
                 "#" << id << " " << platformName << ":" << deviceName <<
                 "\n    SetUp: workFactor=" << workFactor <<
                 ", groupSize=" << groupSize << std::endl;
+            if (whenCalibrates)
+            {
+                std::cout << "  Calibration progress:";
+                std::cout.flush();
+            }
         }
-        buildKernel(thisKitersNum, thisBlocksNum, alwaysPrintBuildLog);
+        buildKernel(thisKitersNum, thisBlocksNum, alwaysPrintBuildLog, whenCalibrates);
     }
 }
 
@@ -738,7 +746,7 @@ void GPUStressTester::calibrateKernel()
                 std::cout << " " << ((curKitersNum-1)*100/40) << "%";
                 std::cout.flush();
             }
-            buildKernel(curKitersNum, blocksNum, false);
+            buildKernel(curKitersNum, blocksNum, false, true);
             
             clKernel.setArg(0, cl_uint(workSize));
             clKernel.setArg(1, clBuffer1);
@@ -823,8 +831,7 @@ void GPUStressTester::calibrateKernel()
             }
         }
         
-        /* if choosen we compile real code */
-        {
+        {   /* if choosen we compile real code */
             std::lock_guard<std::mutex> l(stdOutputMutex);
             std::cout << " 100%" << std::endl;
             std::cout << "Kernel Calibrated for\n  " <<
@@ -841,8 +848,7 @@ void GPUStressTester::calibrateKernel()
     }
     
     kitersNum = bestKitersNum;
-    
-    buildKernel(kitersNum, blocksNum, true);
+    buildKernel(kitersNum, blocksNum, true, false);
 }
 
 void GPUStressTester::printBuildLog()
@@ -876,7 +882,7 @@ void GPUStressTester::printStatus(cxuint passNum)
     const int64_t startMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
                 currentTime-startTime).count();
     char timeStrBuf[128];
-    snprintf(timeStrBuf, 128, "%02u:%02u:%02u.%03u", cxuint(startMillis/3600000),
+    snprintf(timeStrBuf, 128, "%u:%02u:%02u.%03u", cxuint(startMillis/3600000),
              cxuint((startMillis/60000)%60), cxuint((startMillis/1000)%60),
              cxuint(startMillis%1000));
     
@@ -894,7 +900,7 @@ void GPUStressTester::throwFailedComputations(cxuint passNum)
                 currentTime-startTime).count();
     char strBuf[128];
     snprintf(strBuf, 128,
-             "FAILED COMPUTATIONS!!!! PASS #%u, Elapsed time: %02u:%02u:%02u.%03u",
+             "FAILED COMPUTATIONS!!!! PASS #%u, Elapsed time: %u:%02u:%02u.%03u",
              passNum, cxuint(startMillis/3600000), cxuint((startMillis/60000)%60),
              cxuint((startMillis/1000)%60), cxuint(startMillis%1000));
     if (!exitIfAllFails)
