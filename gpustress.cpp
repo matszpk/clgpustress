@@ -47,7 +47,7 @@
 #  define SIZE_T_SPEC "%zu"
 #endif
 
-#define PROGRAM_VERSION "0.0.5.2"
+#define PROGRAM_VERSION "0.0.5.3"
 
 typedef unsigned short cxushort;
 typedef signed short cxshort;
@@ -257,7 +257,7 @@ getChoosenCLDevicesFromList(const char* str)
         outDevices.push_back(std::make_pair(clPlatform, clDevice));
         
         while (*p != 0 && *p != ',') p++;
-        if (*p == ',') // // next elem in list
+        if (*p == ',') // next elem in list
         {
             p++;
             if (*p == 0)
