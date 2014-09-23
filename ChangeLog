@@ -5,6 +5,7 @@ Version 0.0.5.3 (23.09.2014):
 - calibration kernel progress
 - ensure this same data for every kernel execution while a calibration
 - small optimization for getChoosenCLDevicesFromList
+- fixed mistake in test type list
 
 Version 0.0.5.2 (22.09.2014):
 - fixed serious memory leak
