@@ -162,7 +162,12 @@ static std::vector<cxuint> parseCmdUIntList(const char* str, const char* name)
         outVector.push_back(val);
         
         while (*p != 0 && *p != ',') p++;
-        if (*p == ',') p++; // next elem in list
+        if (*p == ',') // next elem in list
+        {
+            p++;
+            if (*p == 0)
+                throw MyException(std::string("Cant parse ")+name);
+        }
     }
     return outVector;
 }
@@ -212,7 +217,7 @@ static std::vector<std::pair<cl::Platform, cl::Device> > getChoosenCLDevices()
             deviceType |= CL_DEVICE_TYPE_CPU;
         if (useAccelerators)
             deviceType |= CL_DEVICE_TYPE_ACCELERATOR;
-            
+        
         clPlatform.getDevices(deviceType, &clDevices);
         for (const cl::Device& clDevice: clDevices)
             outDevices.push_back(std::make_pair(clPlatform, clDevice));
@@ -251,7 +256,12 @@ getChoosenCLDevicesFromList(const char* str)
         outDevices.push_back(std::make_pair(clPlatform, clDevice));
         
         while (*p != 0 && *p != ',') p++;
-        if (*p == ',') p++; // next elem in list
+        if (*p == ',') // // next elem in list
+        {
+            p++;
+            if (*p == 0)
+                throw MyException("Cant parse device list");
+        }
     }
     
     return outDevices;
@@ -1132,6 +1142,7 @@ int main(int argc, const char** argv)
     {
         std::cerr << poptBadOption(optsContext, POPT_BADOPTION_NOALIAS) << ": " <<
             poptStrerror(cmd) << std::endl;
+        poptFreeContext(optsContext);
         return 1;
     }
     
@@ -1211,7 +1222,7 @@ int main(int argc, const char** argv)
             std::vector<cxuint> kitersNums =
                     parseCmdUIntList(kitersNumsString, "kiters numbers");
             std::vector<cxuint> builtinKernels =
-                    parseCmdUIntList(builtinKernelsString, "builtin kernels");
+                    parseCmdUIntList(builtinKernelsString, "testTypes");
             std::vector<bool> inputAndOutputs =
                     parseCmdBoolList(inputAndOutputsString, "inputAndOutputs");
             
@@ -1226,7 +1237,8 @@ int main(int argc, const char** argv)
             "THAN ANY FURMARK STRESS. PLEASE USE THIS PROGRAM VERY CAREFULLY!!!\n"
             "RECOMMEND TO RUN THIS PROGRAM ON STOCK PARAMETERS "
             "(CLOCKS, VOLTAGES,\nESPECIALLY MEMORY CLOCK).\n"
-            "TO TERMINATE THIS PROGRAM PLEASE USE STANDARD 'CTRL-C' KEY COMBINATION.\n" << std::endl;
+            "TO TERMINATE THIS PROGRAM PLEASE USE STANDARD 'CTRL-C' KEY COMBINATION.\n"
+            << std::endl;
         if (exitIfAllFails && choosenCLDevices.size() > 1)
             std::cout << "PROGRAM EXITS ONLY WHEN ALL DEVICES FAILS.\n"
                 "PLEASE TRACE OUTPUT TO FIND FAILED DEVICE AND REACT!\n" << std::endl;
