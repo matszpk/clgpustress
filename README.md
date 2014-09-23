@@ -42,6 +42,13 @@ By default program terminates stress testing when any device fails. You can add
 
 ### Building program
 
+Before any building you must specify the OpenCL root path
+(path where are libraries and includes of the OpenCL).
+An OpenCL root path is defined as 'OPENCLDIR' variable in the Makefile.
+
+NOTE: If you have 64-bit Linux system you must also correct 'LIBDIRS' in the Makefile to
+'-L$(OPENCLDIR)/lib64'.
+
 Enter command:
 
 make
@@ -49,10 +56,6 @@ make
 To clean project enter command:
 
 make clean
-
-OPENCLDIR variable defined in Makefile may be changed for successful compilation.
-If you have AMDAPP or OPENCL directory in other place than /opt/AMDAPP you must change
-OPENCLDIR variable in Makefile file.
 
 ### Memory requirements
 
