@@ -339,7 +339,7 @@ static std::vector<GPUStressConfig> collectGPUStressConfigs(cxuint devicesNum,
     if (blocksNumVec.size() > devicesNum)
         throw MyException("BlocksNum list is too long");
     if (kitersNumVec.size() > devicesNum)
-        throw MyException("kitersNum list is too long");
+        throw MyException("KitersNum list is too long");
     if (builtinKernelVec.size() > devicesNum)
         throw MyException("TestType list is too long");
     if (inAndOutVec.size() > devicesNum)
@@ -541,7 +541,7 @@ try :
     }
     clKernelSourceSize = ::strlen(clKernelSource);
     
-    cl_context_properties clContextProps[5];
+    cl_context_properties clContextProps[3];
     clContextProps[0] = CL_CONTEXT_PLATFORM;
     clContextProps[1] = reinterpret_cast<cl_context_properties>(clPlatform());
     clContextProps[2] = 0;
@@ -714,8 +714,9 @@ void GPUStressTester::calibrateKernel()
     double bestBandwidth = 0.0;
     double bestPerf = 0.0;
     
-    clCmdQueue1.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0), bufItemsNum<<2,
-            initialValues);
+    if (useInputAndOutput!=0)
+        clCmdQueue1.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0), bufItemsNum<<2,
+                initialValues);
     
     if (kitersNum == 0)
     {
@@ -723,12 +724,20 @@ void GPUStressTester::calibrateKernel()
             std::lock_guard<std::mutex> l(stdOutputMutex);
             std::cout << "Calibrating Kernel for\n  " <<
                 "#" << id << " " << platformName << ":" << deviceName << "..." << std::endl;
+            std::cout << "  Calibration progress:";
+            std::cout.flush();
         }
         
         cl::CommandQueue profCmdQueue(clContext, clDevice, CL_QUEUE_PROFILING_ENABLE);
         
         for (cxuint curKitersNum = 1; curKitersNum <= 40; curKitersNum++)
         {
+            if (((curKitersNum-1)%5) == 0)
+            {   /* print progress of calibration */
+                std::lock_guard<std::mutex> l(stdOutputMutex);
+                std::cout << " " << ((curKitersNum-1)*100/40) << "%";
+                std::cout.flush();
+            }
             buildKernel(curKitersNum, blocksNum, false);
             
             clKernel.setArg(0, cl_uint(workSize));
@@ -750,6 +759,10 @@ void GPUStressTester::calibrateKernel()
             cl_ulong kernelTimes[5];
             for (cxuint k = 0; k < 5; k++)
             {
+                if (useInputAndOutput==0) // ensure always this same input data for kernel
+                    clCmdQueue1.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0),
+                            bufItemsNum<<2, initialValues);
+                
                 cl::Event profEvent;
                 profCmdQueue.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
                         cl::NDRange(workSize), cl::NDRange(groupSize), nullptr, &profEvent);
@@ -809,9 +822,11 @@ void GPUStressTester::calibrateKernel()
                 bestBandwidth = currentBandwidth;
             }
         }
+        
         /* if choosen we compile real code */
         {
             std::lock_guard<std::mutex> l(stdOutputMutex);
+            std::cout << " 100%" << std::endl;
             std::cout << "Kernel Calibrated for\n  " <<
                     "#" << id << " " << platformName << ":" << deviceName << "\n"
                     "  BestKitersNum: " << bestKitersNum << ", Bandwidth: " << bestBandwidth <<
