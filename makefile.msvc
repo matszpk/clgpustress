@@ -1,0 +1,20 @@
+CXX = cl
+CXXFLAGS = /O2
+LDFLAGS = /O2
+
+all: gpustress.exe
+
+INCDIRS = /I..\popt-1.16\ /I..\OpenCL1.1\include
+POPTLIB = ..\popt-1.16\popt.lib
+# POPTLIB = ..\popt-1.16-32\popt.lib
+OPENCLLIB = ..\OpenCL1.1\lib64\OpenCL.lib
+# OPENCLLIB = ..\OpenCL1.1\lib32\OpenCL.lib
+
+gpustress.exe: gpustress.obj clkernels.obj
+	$(CXX) $(LDFLAGS) $(CXXFLAGS) $** $(POPTLIB) $(OPENCLLIB)
+
+.cpp.obj:
+	$(CXX) $(CXXFLAGS) $(INCDIRS) /c $<
+
+clean:
+	del *.obj gpustress.exe
