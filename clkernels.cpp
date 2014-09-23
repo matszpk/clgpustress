@@ -19,9 +19,9 @@
 
 const char* testDescsTable[] =
 {
-    "Standard test",
+    "Standard test with local memory",
     "Standard test without local memory",
-    "Polynomial walking",
+    "Polynomial walking without local memory",
     "Polynomial walking with local memory",
     nullptr
 };
