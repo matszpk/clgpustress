@@ -5,7 +5,7 @@
 
 .PHONY: all clean
 
-OPENCLDIR = /opt/AMDAPP
+OPENCLDIR = /home/mat/docs/dev/opencl/OpenCL1.1
 
 LDFLAGS = -Wall
 CXXFLAGS = -Wall -std=gnu++11 -O2 -fexpensive-optimizations

@@ -231,6 +231,7 @@ getChoosenCLDevicesFromList(const char* str)
     std::vector<std::pair<cl::Platform, cl::Device> > outDevices;
     std::vector<cl::Platform> clPlatforms;
     cl::Platform::get(&clPlatforms);
+    std::vector<std::vector<cl::Device> > clDevices(clPlatforms.size());
     
     std::set<std::pair<cxuint,cxuint> > deviceIdsSet;
     const char* p = str;
@@ -244,15 +245,15 @@ getChoosenCLDevicesFromList(const char* str)
             throw MyException("PlatformID out of range");
         cl::Platform clPlatform = clPlatforms[platformId];
         
-        std::vector<cl::Device> clDevices;
-        clPlatform.getDevices(CL_DEVICE_TYPE_ALL, &clDevices);
-        if (deviceId >= clDevices.size())
+        if (clDevices[platformId].empty())
+            clPlatform.getDevices(CL_DEVICE_TYPE_ALL, &clDevices[platformId]);
+        if (deviceId >= clDevices[platformId].size())
             throw MyException("DeviceID out of range");
         
         if (!deviceIdsSet.insert(std::make_pair(platformId, deviceId)).second)
             throw MyException("Duplicated devices in device list!");
         
-        cl::Device clDevice = clDevices[deviceId];
+        cl::Device clDevice = clDevices[platformId][deviceId];
         outDevices.push_back(std::make_pair(clPlatform, clDevice));
         
         while (*p != 0 && *p != ',') p++;
@@ -1059,21 +1060,33 @@ try
         try
         { clCmdQueue1.finish(); }
         catch(...)
-        { }
+        {
+            std::lock_guard<std::mutex> l(stdOutputMutex);
+            std::cerr << "Failed on CommandQueue1 finish" << std::endl;
+        }
         try
         { clCmdQueue2.finish(); }
         catch(...)
-        { }
+        {
+            std::lock_guard<std::mutex> l(stdOutputMutex);
+            std::cerr << "Failed on CommandQueue2 finish" << std::endl;
+        }
         throw;
     }
     try
     { clCmdQueue1.finish(); }
     catch(...)
-    { }
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        std::cerr << "Failed on CommandQueue1 finish" << std::endl;
+    }
     try
     { clCmdQueue2.finish(); }
     catch(...)
-    { }
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        std::cerr << "Failed on CommandQueue2 finish" << std::endl;
+    }
 }
 catch(const cl::Error& error)
 {
@@ -1091,7 +1104,10 @@ catch(const cl::Error& error)
                 failMessage << std::endl;
     }
     catch(...)
-    { } // fatal exception!!!
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        std::cerr << "Cant print fatal error!!!" << std::endl;
+    } // fatal exception!!!
 }
 catch(const std::exception& ex)
 {
@@ -1106,7 +1122,10 @@ catch(const std::exception& ex)
                 failMessage << std::endl;
     }
     catch(...)
-    { } // fatal exception!!!
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        std::cerr << "Cant print fatal error!!!" << std::endl;
+    } // fatal exception!!!
 }
 catch(...)
 {
@@ -1120,7 +1139,10 @@ catch(...)
                 failMessage << std::endl;
     }
     catch(...)
-    { } // fatal exception!!!
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        std::cerr << "Cant print fatal error!!!" << std::endl;
+    } // fatal exception!!!
 }
 
 int main(int argc, const char** argv)
