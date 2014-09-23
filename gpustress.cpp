@@ -722,12 +722,12 @@ void GPUStressTester::calibrateKernel()
     double bestBandwidth = 0.0;
     double bestPerf = 0.0;
     
-    if (useInputAndOutput!=0)
-        clCmdQueue1.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0), bufItemsNum<<2,
-                initialValues);
-    
     if (kitersNum == 0)
     {
+        if (useInputAndOutput!=0)
+            clCmdQueue1.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0), bufItemsNum<<2,
+                    initialValues);
+        
         {
             std::lock_guard<std::mutex> l(stdOutputMutex);
             std::cout << "Calibrating Kernel for\n  " <<
