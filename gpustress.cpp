@@ -290,6 +290,18 @@ static void listCLDevices()
             clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
             
             std::cout << i << ":" << j << "  " << platformName << ":" << deviceName << "\n";
+            cl_uint deviceClock;
+            cl_ulong memSize;
+            cl_uint maxComputeUnits;
+            size_t maxWorkGroupSize;
+            clDevice.getInfo(CL_DEVICE_MAX_CLOCK_FREQUENCY, &deviceClock);
+            clDevice.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &memSize);
+            clDevice.getInfo(CL_DEVICE_MAX_COMPUTE_UNITS, &maxComputeUnits);
+            clDevice.getInfo(CL_DEVICE_MAX_WORK_GROUP_SIZE, &maxWorkGroupSize);
+            
+            std::cout << "  Clock: " << deviceClock << " MHz, Memory: " <<
+                    memSize/1048576 << " MB, CompUnits: " <<
+                    maxComputeUnits << ", MaxGroupSize: " << maxWorkGroupSize << "\n";
         }
     }
     std::cout.flush();
