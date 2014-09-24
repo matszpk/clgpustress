@@ -300,7 +300,7 @@ static void listCLDevices()
             clDevice.getInfo(CL_DEVICE_MAX_WORK_GROUP_SIZE, &maxWorkGroupSize);
             
             std::cout << "  Clock: " << deviceClock << " MHz, Memory: " <<
-                    memSize/1048576 << " MB, CompUnits: " <<
+                    (memSize>>20) << " MB, CompUnits: " <<
                     maxComputeUnits << ", MaxGroupSize: " << maxWorkGroupSize << "\n";
         }
     }
