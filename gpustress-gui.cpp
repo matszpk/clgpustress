@@ -186,6 +186,10 @@ private:
     static void handleOutput(void* data);
     static void handleOutputAwake(void* data);
     
+    static void stressEndAwake(void* data);
+    
+    static void startStopCalled(Fl_Widget* widget, void* data);
+    
 public:
     GUIApp(const std::vector<cl::Device>& clDevices,
            const std::vector<GPUStressConfig>& configs);
@@ -990,6 +994,7 @@ private:
     
     std::vector<std::string> choiceLabels;
     
+    static void selectedDeviceChanged(Fl_Widget* widget, void* data);
     static void saveLogCalled(Fl_Widget* widget, void* data);
     static void clearLogCalled(Fl_Widget* widget, void* data);
     
@@ -999,7 +1004,6 @@ public:
     
     void updateDeviceList();
     
-    void initLogs();
     void updateLogs(const std::string& newLogs);
 };
 
@@ -1008,6 +1012,7 @@ TestLogsGroup::TestLogsGroup(GUIApp& _guiapp)
 {
     deviceChoice = new Fl_Choice(70, 32, 520, 20, "Device:");
     deviceChoice->tooltip("Choose device for which log messages will be displayed");
+    deviceChoice->callback(&TestLogsGroup::selectedDeviceChanged, this);
     
     textBuffers.push_back(new Fl_Text_Buffer());
     
@@ -1032,6 +1037,18 @@ TestLogsGroup::TestLogsGroup(GUIApp& _guiapp)
     end();
 }
 
+void TestLogsGroup::selectedDeviceChanged(Fl_Widget* widget, void* data)
+{
+    Fl_Choice* choice = reinterpret_cast<Fl_Choice*>(widget);
+    TestLogsGroup* t = reinterpret_cast<TestLogsGroup*>(data);
+    //
+    size_t index = choice->value();
+    if (t->textBuffers.size() >= index)
+        return;
+    
+    t->logOutput->buffer(t->textBuffers[index]);
+}
+
 void TestLogsGroup::saveLogCalled(Fl_Widget* widget, void* data)
 {
     TestLogsGroup* t = reinterpret_cast<TestLogsGroup*>(data);
@@ -1054,6 +1071,7 @@ void TestLogsGroup::clearLogCalled(Fl_Widget* widget, void* data)
 
 void TestLogsGroup::updateDeviceList()
 {
+    logOutput->buffer(nullptr);
     for (Fl_Text_Buffer* tbuf: textBuffers)
         delete tbuf;
     textBuffers.clear();
@@ -1084,6 +1102,7 @@ void TestLogsGroup::updateDeviceList()
         saveLogButton->activate();
         clearLogButton->activate();
         logOutput->activate();
+        logOutput->buffer(textBuffers[0]);
     }
     else
     {
@@ -1091,10 +1110,7 @@ void TestLogsGroup::updateDeviceList()
         clearLogButton->deactivate();
         logOutput->deactivate();
     }
-}
-
-void TestLogsGroup::initLogs()
-{
+    
     logInit = false;
     logCurTextBuffer = 0;
 }
@@ -1197,6 +1213,7 @@ GUIApp::GUIApp(const std::vector<cl::Device>& clDevices,
 try
         : mainWin(nullptr), mainTabs(nullptr), deviceChoiceGrp(nullptr)
 {
+    mainStressThread = nullptr;
     mainWin = new Fl_Window(600, 465, "GPUStress GUI");
     mainTabs = new Fl_Tabs(0, 0, 600, 400);
     deviceChoiceGrp = new DeviceChoiceGroup(clDevices, *this);
@@ -1209,6 +1226,7 @@ try
     startStopButton = new Fl_Button(0, 425, 600, 40, "START");
     startStopButton->labelfont(FL_HELVETICA_BOLD);
     startStopButton->labelsize(20);
+    startStopButton->callback(&GUIApp::startStopCalled, this);
     mainWin->resizable(mainTabs);
     mainWin->end();
     
@@ -1269,8 +1287,41 @@ void GUIApp::handleOutputAwake(void* data)
     delete odata;
 }
 
+void GUIApp::stressEndAwake(void* data)
+{
+    GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
+    guiapp->deviceChoiceGrp->activate();
+    guiapp->testConfigsGrp->activate();
+    guiapp->startStopButton->label("START");
+    guiapp->exitAllFailsButton->activate();
+    guiapp->mainStressThread->join();
+    delete guiapp->mainStressThread;
+    guiapp->mainStressThread = nullptr;
+}
+
+void GUIApp::startStopCalled(Fl_Widget* widget, void* data)
+{
+    GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
+    if (guiapp->mainStressThread == nullptr)
+    {
+        guiapp->deviceChoiceGrp->deactivate();
+        guiapp->testConfigsGrp->deactivate();
+        guiapp->startStopButton->label("STOP");
+        guiapp->exitAllFailsButton->deactivate();
+        guiapp->testLogsGrp->updateDeviceList();
+        guiapp->mainTabs->value(guiapp->testLogsGrp);
+        
+        guiapp->mainStressThread = new std::thread(&GUIApp::runStress, guiapp);
+    }
+    else
+        stopAllStressTestersByUser.store(true);
+}
+
 void GUIApp::runStress()
 {
+    stopAllStressTestersIfFail.store(false);
+    stopAllStressTestersByUser.store(false);
+    
     const size_t num = deviceChoiceGrp->getClDevicesNum();
     std::vector<GPUStressTester*> gpuStressTesters;
     std::vector<std::thread*> testerThreads;
@@ -1357,7 +1408,7 @@ void GUIApp::runStress()
             delete gpuStressTesters[i];
         }
         
-        // awake for change state
+        Fl::awake(&GUIApp::stressEndAwake, this);
     }
     catch(const cl::Error& err)
     {
