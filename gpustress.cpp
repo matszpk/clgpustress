@@ -159,8 +159,7 @@ int main(int argc, const char** argv)
     int cmd;
     poptContext optsContext;
     
-    outStream = &std::cout;
-    errStream = &std::cerr;
+    installOutputHandler(&std::cout, &std::cerr);
     
     optsContext = poptGetContext("gpustress", argc, argv, optionsTable, 0);
     

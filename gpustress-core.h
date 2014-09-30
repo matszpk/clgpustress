@@ -27,7 +27,6 @@
 #include <string>
 #include <vector>
 #include <mutex>
-#include <condition_variable>
 #include <random>
 #include <chrono>
 #include <atomic>
@@ -63,6 +62,8 @@ struct GPUStressConfig
     bool inputAndOutput;
 };
 
+typedef void (*OutputHandler)(void* data);
+
 extern int useCPUs;
 extern int useGPUs;
 extern int useAccelerators;
@@ -74,11 +75,13 @@ extern bool useAllPlatforms;
 extern int exitIfAllFails;
 
 extern std::mutex stdOutputMutex;
-extern std::condition_variable stdOutputCond;
 extern std::ostream* outStream;
 extern std::ostream* errStream;
 extern std::atomic<bool> stopAllStressTestersIfFail;
 extern std::atomic<bool> stopAllStressTestersByUser;
+
+extern OutputHandler outputHandler;
+extern void* outputHandlerData;
 
 extern std::vector<cxuint> parseCmdUIntList(const char* str, const char* name);
 
@@ -93,6 +96,9 @@ extern std::vector<GPUStressConfig> collectGPUStressConfigs(cxuint devicesNum,
         const std::vector<cxuint>& workFactorVec,
         const std::vector<cxuint>& blocksNumVec, const std::vector<cxuint>& kitersNumVec,
         const std::vector<cxuint>& builtinKernelVec, const std::vector<bool>& inAndOutVec);
+
+extern void installOutputHandler(std::ostream* out, std::ostream* err,
+                OutputHandler handler = nullptr, void* data = nullptr);
 
 class GPUStressTester
 {

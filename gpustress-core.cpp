@@ -271,12 +271,30 @@ extern const char* clKernelPW2Source;
 int exitIfAllFails = 0;
 
 std::mutex stdOutputMutex;
-std::condition_variable stdOutputCond;
 std::ostream* outStream = nullptr;
 std::ostream* errStream = nullptr;
 
 std::atomic<bool> stopAllStressTestersIfFail(false);
 std::atomic<bool> stopAllStressTestersByUser(false);
+
+extern OutputHandler outputHandler = nullptr;
+extern void* outputHandlerData = nullptr;
+
+static inline void handleOutput()
+{
+    if (outputHandler == nullptr)
+        return;
+    outputHandler(outputHandlerData);
+}
+
+void installOutputHandler(std::ostream* out, std::ostream* err,
+                OutputHandler handler, void* data)
+{
+    outStream = out;
+    errStream = err;
+    outputHandler = handler;
+    outputHandlerData = data;
+}
 
 static const float examplePoly[5] = 
 { 4.43859953e+05,   1.13454169e+00,  -4.50175916e-06, -1.43865531e-12,   4.42133541e-18 };
@@ -351,7 +369,7 @@ try :
                 ", passIters=" << passItersNum <<
                 ", testType=" << config.builtinKernel <<
                 ",\n    inputAndOutput=" << (useInputAndOutput?"yes":"no") << std::endl;
-        stdOutputCond.notify_one();
+        handleOutput();
     }
     
     cl_context_properties clContextProps[3];
@@ -392,8 +410,8 @@ try :
     if (stopAllStressTestersByUser.load())
     {
         std::lock_guard<std::mutex> l(stdOutputMutex);
-        *outStream << "Exiting, because user stopped test." << std::endl;
-        stdOutputCond.notify_one();
+        *outStream << "#" << id << " Exiting, because user stopped test." << std::endl;
+        handleOutput();
         return;
     }
     
@@ -421,8 +439,8 @@ try :
         if (stopAllStressTestersByUser.load())
         {
             std::lock_guard<std::mutex> l(stdOutputMutex);
-            *outStream << "Exiting, because user stopped test." << std::endl;
-            stdOutputCond.notify_one();
+            *outStream << "#" << id << " Exiting, because user stopped test." << std::endl;
+            handleOutput();
             return;
         }
         
@@ -459,8 +477,8 @@ try :
     if (stopAllStressTestersByUser.load())
     {
         std::lock_guard<std::mutex> l(stdOutputMutex);
-        *outStream << "Exiting, because user stopped test." << std::endl;
-        stdOutputCond.notify_one();
+        *outStream << "#" << id << " Exiting, because user stopped test." << std::endl;
+        handleOutput();
         return;
     }
     
@@ -548,7 +566,7 @@ void GPUStressTester::buildKernel(cxuint thisKitersNum, cxuint thisBlocksNum,
                 *outStream << "  Calibration progress:";
                 outStream->flush();
             }
-            stdOutputCond.notify_one();
+            handleOutput();
         }
         buildKernel(thisKitersNum, thisBlocksNum, alwaysPrintBuildLog, whenCalibrates);
     }
@@ -572,7 +590,7 @@ void GPUStressTester::calibrateKernel()
                 "#" << id << " " << platformName << ":" << deviceName << "..." << std::endl;
             *outStream << "  Calibration progress:";
             outStream->flush();
-            stdOutputCond.notify_one();
+            handleOutput();
         }
         
         cl::CommandQueue profCmdQueue(clContext, clDevice, CL_QUEUE_PROFILING_ENABLE);
@@ -589,7 +607,7 @@ void GPUStressTester::calibrateKernel()
                 std::lock_guard<std::mutex> l(stdOutputMutex);
                 *outStream << " " << ((curKitersNum-1)*100/40) << "%";
                 outStream->flush();
-                stdOutputCond.notify_one();
+                handleOutput();
             }
             buildKernel(curKitersNum, blocksNum, false, true);
             
@@ -683,7 +701,7 @@ void GPUStressTester::calibrateKernel()
         {
             std::lock_guard<std::mutex> l(stdOutputMutex);
             *outStream << std::endl;
-            stdOutputCond.notify_one();
+            handleOutput();
             throw;
         }
         
@@ -694,7 +712,7 @@ void GPUStressTester::calibrateKernel()
                     "#" << id << " " << platformName << ":" << deviceName << "\n"
                     "  BestKitersNum: " << bestKitersNum << ", Bandwidth: " << bestBandwidth <<
                     " GB/s, Performance: " << bestPerf << " GFLOPS" << std::endl;
-            stdOutputCond.notify_one();
+            handleOutput();
         }
     }
     else
@@ -702,7 +720,7 @@ void GPUStressTester::calibrateKernel()
         bestKitersNum = kitersNum;
         std::lock_guard<std::mutex> l(stdOutputMutex);
         *outStream << "Kernel KitersNum: " << bestKitersNum << std::endl;
-        stdOutputCond.notify_one();
+        handleOutput();
     }
     
     if (stopAllStressTestersByUser.load())
@@ -718,8 +736,8 @@ void GPUStressTester::printBuildLog()
     std::lock_guard<std::mutex> l(stdOutputMutex);
     *outStream << "Program build log:\n  " <<
             platformName << ":" << deviceName << "\n:--------------------\n" <<
-            buildLog << std::endl;
-    stdOutputCond.notify_one();
+            buildLog << "\n:--------------------" << std::endl;
+    handleOutput();
 }
 
 void GPUStressTester::printStatus(cxuint passNum)
@@ -752,7 +770,7 @@ void GPUStressTester::printStatus(cxuint passNum)
             " passed PASS #" << passNum << "\n"
             "Approx. bandwidth: " << bandwidth << " GB/s, "
             "Approx. perf: " << perf << " GFLOPS, elapsed: " << timeStrBuf << std::endl;
-    stdOutputCond.notify_one();
+    handleOutput();
 }
 
 void GPUStressTester::throwFailedComputations(cxuint passNum)
@@ -798,15 +816,15 @@ try
         if (stopAllStressTestersIfFail.load())
         {
             std::lock_guard<std::mutex> l(stdOutputMutex);
-            *outStream << "Exiting, because some device failed." << std::endl;
-            stdOutputCond.notify_one();
+            *outStream << "#" << id << " Exiting, because some device failed." << std::endl;
+            handleOutput();
             break;
         }
         if (stopAllStressTestersByUser.load())
         {
             std::lock_guard<std::mutex> l(stdOutputMutex);
-            *outStream << "Exiting, because user stopped test." << std::endl;
-            stdOutputCond.notify_one();
+            *outStream << "#" << id << " Exiting, because user stopped test." << std::endl;
+            handleOutput();
             break;
         }
         
@@ -877,15 +895,15 @@ try
         if (stopAllStressTestersIfFail.load())
         {
             std::lock_guard<std::mutex> l(stdOutputMutex);
-            *outStream << "Exiting, because some device failed." << std::endl;
-            stdOutputCond.notify_one();
+            *outStream << "#" << id << " Exiting, because some device failed." << std::endl;
+            handleOutput();
             break;
         }
         if (stopAllStressTestersByUser.load())
         {
             std::lock_guard<std::mutex> l(stdOutputMutex);
-            *outStream << "Exiting, because user stopped test." << std::endl;
-            stdOutputCond.notify_one();
+            *outStream << "#" << id << " Exiting, because user stopped test." << std::endl;
+            handleOutput();
             break;
         }
         
@@ -962,7 +980,7 @@ try
         {
             std::lock_guard<std::mutex> l(stdOutputMutex);
             *errStream << "Failed on CommandQueue1 finish" << std::endl;
-            stdOutputCond.notify_one();
+            handleOutput();
         }
         try
         { clCmdQueue2.finish(); }
@@ -970,7 +988,7 @@ try
         {
             std::lock_guard<std::mutex> l(stdOutputMutex);
             *errStream << "Failed on CommandQueue2 finish" << std::endl;
-            stdOutputCond.notify_one();
+            handleOutput();
         }
         throw;
     }
@@ -980,7 +998,7 @@ try
     {
         std::lock_guard<std::mutex> l(stdOutputMutex);
         *errStream << "Failed on CommandQueue1 finish" << std::endl;
-        stdOutputCond.notify_one();
+        handleOutput();
     }
     try
     { clCmdQueue2.finish(); }
@@ -988,7 +1006,7 @@ try
     {
         std::lock_guard<std::mutex> l(stdOutputMutex);
         *errStream << "Failed on CommandQueue2 finish" << std::endl;
-        stdOutputCond.notify_one();
+        handleOutput();
     }
 }
 catch(const cl::Error& error)
@@ -1005,13 +1023,13 @@ catch(const cl::Error& error)
         *errStream << "Failed StressTester for\n  " <<
                 "#" << id  << " " << platformName << ":" << deviceName << ": " <<
                 failMessage << std::endl;
-        stdOutputCond.notify_one();
+        handleOutput();
     }
     catch(...)
     {
         std::lock_guard<std::mutex> l(stdOutputMutex);
         *errStream << "Cant print fatal error!!!" << std::endl;
-        stdOutputCond.notify_one();
+        handleOutput();
     } // fatal exception!!!
 }
 catch(const std::exception& ex)
@@ -1025,13 +1043,13 @@ catch(const std::exception& ex)
         *errStream << "Failed StressTester for\n  " <<
                 "#" << id << " " << platformName << ":" << deviceName << ":\n    " <<
                 failMessage << std::endl;
-        stdOutputCond.notify_one();
+        handleOutput();
     }
     catch(...)
     {
         std::lock_guard<std::mutex> l(stdOutputMutex);
         *errStream << "Cant print fatal error!!!" << std::endl;
-        stdOutputCond.notify_one();
+        handleOutput();
     } // fatal exception!!!
 }
 catch(...)
@@ -1044,12 +1062,12 @@ catch(...)
         *errStream << "Failed StressTester for\n  " <<
                 "#" << id << " " << platformName << ":" << deviceName << ":\n    " <<
                 failMessage << std::endl;
-        stdOutputCond.notify_one();
+        handleOutput();
     }
     catch(...)
     {
         std::lock_guard<std::mutex> l(stdOutputMutex);
         *errStream << "Cant print fatal error!!!" << std::endl;
-        stdOutputCond.notify_one();
+        handleOutput();
     } // fatal exception!!!
 }

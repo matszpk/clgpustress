@@ -25,10 +25,12 @@
 
 #include <iostream>
 #include <ostream>
+#include <sstream>
 #include <string>
 #include <set>
 #include <map>
 #include <cstring>
+#include <climits>
 #include <vector>
 #include <thread>
 #include <mutex>
@@ -168,7 +170,21 @@ private:
     TestConfigsGroup* testConfigsGrp;
     TestLogsGroup* testLogsGrp;
     
+    Fl_Check_Button* exitAllFailsButton;
     Fl_Button* startStopButton;
+    
+    std::ostringstream logOutputStream;
+    
+    std::thread* mainStressThread;
+    
+    struct HandleOutputData
+    {
+        std::string outStr;
+        GUIApp* guiapp;
+    };
+    
+    static void handleOutput(void* data);
+    static void handleOutputAwake(void* data);
     
 public:
     GUIApp(const std::vector<cl::Device>& clDevices,
@@ -186,6 +202,8 @@ public:
     
     const DeviceChoiceGroup* getDeviceChoiceGroup() const
     { return deviceChoiceGrp; }
+    
+    void runStress();
 };
 
 /*
@@ -543,6 +561,7 @@ SingleTestConfigGroup::SingleTestConfigGroup(const cl::Device& clDevice,
         const GPUStressConfig* config) : Fl_Group(10, 60, 580, 300)
 {
     box(FL_THIN_UP_FRAME);
+    Fl_Group* group = new Fl_Group(20, 60, 560, 220);
     deviceInfoBox =new Fl_Box(20, 60, 0, 20, "Required memory: MB");
     deviceInfoBox->align(FL_ALIGN_RIGHT);
     memoryReqsBox =new Fl_Box(20, 80, 0, 20, "Required memory: MB");
@@ -573,6 +592,10 @@ SingleTestConfigGroup::SingleTestConfigGroup(const cl::Device& clDevice,
         builtinKernelChoice->add(*p);
     inputAndOutputButton = new Fl_Check_Button(130, 257, 200, 25, "&Input and output");
     inputAndOutputButton->tooltip("Enable an using separate input buffer and output buffer");
+    group->end();
+    
+    Fl_Box* box = new Fl_Box(20, 280, 580, 80);
+    resizable(box);
     end();
     
     if (config != nullptr)
@@ -690,6 +713,9 @@ public:
             const std::vector<GPUStressConfig>& configs, GUIApp& _guiapp);
     
     void updateDeviceList();
+    
+    const GPUStressConfig& getStressConfig(cxuint index) const
+    { return allConfigsMap.find(choosenClDeviceIDs[index])->second; }
 };
 
 TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
@@ -731,6 +757,8 @@ TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
     }
     else // if empty
         singleConfigGroup = new SingleTestConfigGroup(cl::Device(), nullptr);
+    
+    resizable(singleConfigGroup);
     
     deviceChoice->callback(&TestConfigsGroup::selectedDeviceChanged, this);
     singleConfigGroup->installCallback(&TestConfigsGroup::singleConfigChanged, this);
@@ -938,6 +966,8 @@ void TestConfigsGroup::updateDeviceList()
     }
 }
 
+static const cxuint maxLogLength = 1000000;
+
 /*
  * Test logs group class
  */
@@ -948,18 +978,11 @@ private:
     Fl_Choice* deviceChoice;
     Fl_Choice* logTypeChoice;
     
-    struct LogLine
-    { 
-        cxuint type, pos, length;
-        
-        LogLine() : type(0), pos(0), length() { }
-        LogLine(cxuint _type, cxuint _pos, cxuint _length)
-            : type(_type), pos(_pos), length(_length)
-        { }
-    };
+    std::vector<Fl_Text_Buffer*> textBuffers;
     
-    std::vector<LogLine> logsLines;
-    std::string logsString;
+    bool logInit;
+    cxuint logCurTextBuffer; // 0 - global, other: device no. value-1
+    
     Fl_Text_Display* logOutput;
     
     Fl_Button* saveLogButton;
@@ -967,86 +990,202 @@ private:
     
     std::vector<std::string> choiceLabels;
     
+    static void saveLogCalled(Fl_Widget* widget, void* data);
+    static void clearLogCalled(Fl_Widget* widget, void* data);
+    
     GUIApp& guiapp;
 public:
-    TestLogsGroup(const std::vector<cl::Device>& clDevices, GUIApp& _guiapp);
+    TestLogsGroup(GUIApp& _guiapp);
     
     void updateDeviceList();
     
-    void clearLogs();
+    void initLogs();
+    void updateLogs(const std::string& newLogs);
 };
 
-TestLogsGroup::TestLogsGroup(const std::vector<cl::Device>& clDevices, GUIApp& _guiapp)
+TestLogsGroup::TestLogsGroup(GUIApp& _guiapp)
         : Fl_Group(0, 20, 600, 380, "Test logs"), guiapp(_guiapp)
 {
-    const DeviceChoiceGroup* devChoiceGroup = guiapp.getDeviceChoiceGroup();
-    //curClDeviceID = nullptr;
-    deviceChoice = new Fl_Choice(70, 32, 410, 20, "Device:");
+    deviceChoice = new Fl_Choice(70, 32, 520, 20, "Device:");
     deviceChoice->tooltip("Choose device for which log messages will be displayed");
     
-    if (clDevices.size() > 1)
-        deviceChoice->add("All devices");
-    
-    for (size_t i = 0; i < devChoiceGroup->getClDevicesNum(); i++)
-        if (devChoiceGroup->isClDeviceEnabled(i))
-        {
-            const cl::Device& clDevice = devChoiceGroup->getClDevice(i);
-            cl::Platform clPlatform;
-            clDevice.getInfo(CL_DEVICE_PLATFORM, &clPlatform);
-            std::string platformName;
-            clPlatform.getInfo(CL_PLATFORM_NAME, &platformName);
-            std::string deviceName;
-            clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
-            
-            choiceLabels.push_back(escapeForFlMenu(platformName + ":" + deviceName));
-            deviceChoice->add(choiceLabels.back().c_str());
-        }
-    
-    if (!clDevices.empty())
-        deviceChoice->value(0);
-    
-    logTypeChoice = new Fl_Choice(525, 32, 65, 20, "Logs:");
-    logTypeChoice->tooltip("Choose type of log messages which will be displayed");
-    logTypeChoice->add("Both");
-    logTypeChoice->add("Out");
-    logTypeChoice->add("Error");
-    logTypeChoice->value(0);
+    textBuffers.push_back(new Fl_Text_Buffer());
     
     logOutput = new Fl_Text_Display(10, 60, 580, 300);
+    logOutput->textfont(FL_COURIER);
+    logOutput->textsize(12);
+    
+    logOutput->scroll(100000, 0);
+    
+    resizable(logOutput);
     
     saveLogButton = new Fl_Button(10, 365, 285, 25, "&Save log");
     saveLogButton->tooltip("Save choosen log to file");
-    clearLogButton = new Fl_Button(305, 365, 285, 25, "&Clear all logs");
-    clearLogButton->tooltip("Clear all received logs");
+    saveLogButton->callback(&TestLogsGroup::saveLogCalled, this);
+    clearLogButton = new Fl_Button(305, 365, 285, 25, "&Clear log");
+    clearLogButton->tooltip("Clear choosen log");
+    clearLogButton->callback(&TestLogsGroup::clearLogCalled, this);
+    
+    saveLogButton->deactivate();
+    clearLogButton->deactivate();
+    logOutput->deactivate();
     end();
+}
+
+void TestLogsGroup::saveLogCalled(Fl_Widget* widget, void* data)
+{
+    TestLogsGroup* t = reinterpret_cast<TestLogsGroup*>(data);
+    cxuint index = t->deviceChoice->value();
+    if (t->textBuffers.size() >= index)
+        return;
+    
+    //textBuffers[index]->savefile();
+}
+
+void TestLogsGroup::clearLogCalled(Fl_Widget* widget, void* data)
+{
+    TestLogsGroup* t = reinterpret_cast<TestLogsGroup*>(data);
+    cxuint index = t->deviceChoice->value();
+    if (t->textBuffers.size() >= index)
+        return;
+    
+    t->textBuffers[index]->remove(0, t->textBuffers[index]->length());
 }
 
 void TestLogsGroup::updateDeviceList()
 {
+    for (Fl_Text_Buffer* tbuf: textBuffers)
+        delete tbuf;
+    textBuffers.clear();
     deviceChoice->clear();
     
     const DeviceChoiceGroup* devChoiceGroup = guiapp.getDeviceChoiceGroup();
-    
-    if (devChoiceGroup->getEnabledDevicesCount() > 1)
-        deviceChoice->add("All devices");
-    
-    for (size_t i = 0; i < devChoiceGroup->getClDevicesNum(); i++)
-        if (devChoiceGroup->isClDeviceEnabled(i))
-        {
-            const cl::Device& clDevice = devChoiceGroup->getClDevice(i);
-            cl::Platform clPlatform;
-            clDevice.getInfo(CL_DEVICE_PLATFORM, &clPlatform);
-            std::string platformName;
-            clPlatform.getInfo(CL_PLATFORM_NAME, &platformName);
-            std::string deviceName;
-            clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
-            
-            choiceLabels.push_back(escapeForFlMenu(platformName + ":" + deviceName));
-            deviceChoice->add(choiceLabels.back().c_str());
-        }
-    
     if (devChoiceGroup->getEnabledDevicesCount() != 0)
+    {
+        textBuffers.push_back(new Fl_Text_Buffer());
+        
+        for (size_t i = 0; i < devChoiceGroup->getClDevicesNum(); i++)
+            if (devChoiceGroup->isClDeviceEnabled(i))
+            {
+                const cl::Device& clDevice = devChoiceGroup->getClDevice(i);
+                cl::Platform clPlatform;
+                clDevice.getInfo(CL_DEVICE_PLATFORM, &clPlatform);
+                std::string platformName;
+                clPlatform.getInfo(CL_PLATFORM_NAME, &platformName);
+                std::string deviceName;
+                clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
+                
+                choiceLabels.push_back(escapeForFlMenu(platformName + ":" + deviceName));
+                deviceChoice->add(choiceLabels.back().c_str());
+                textBuffers.push_back(new Fl_Text_Buffer());
+            }
+        
         deviceChoice->value(0);
+        saveLogButton->activate();
+        clearLogButton->activate();
+        logOutput->activate();
+    }
+    else
+    {
+        saveLogButton->deactivate();
+        clearLogButton->deactivate();
+        logOutput->deactivate();
+    }
+}
+
+void TestLogsGroup::initLogs()
+{
+    logInit = false;
+    logCurTextBuffer = 0;
+}
+
+static void appendToTextBuffetWithLimit(Fl_Text_Buffer* textBuffer,
+                    const std::string& newLogs)
+{
+    if (textBuffer->length() + newLogs.size() > maxLogLength)
+    {
+        if (textBuffer->length() > int(maxLogLength))
+        {
+            textBuffer->remove(0, textBuffer->length());
+            const char* newStart = newLogs.c_str() + newLogs.size()-maxLogLength;
+            
+            if (newStart != newLogs.c_str() && newStart[-1] != '\n')
+            {   /* align to nearest line */
+                for (; *newStart != 0; newStart++)
+                    if (*newStart == '\n')
+                        break;
+                newStart++;
+            }
+            
+            textBuffer->append(newStart);
+        }
+        else
+        {
+            const size_t textLen = textBuffer->length();
+            const char* text = textBuffer->text();
+            
+            size_t pos = textLen + newLogs.size() - maxLogLength;
+            if (pos != 0 && text[pos-1] != '\n')
+            {
+                for (; pos < textLen; pos++)
+                    if (text[pos] == '\n')
+                        break;
+                pos++;
+            }
+            
+            textBuffer->remove(0, pos);
+            textBuffer->append(newLogs.c_str());
+        }
+    }
+    else // no overflow
+        textBuffer->append(newLogs.c_str());
+}
+
+void TestLogsGroup::updateLogs(const std::string& newLogs)
+{
+    if (newLogs.empty())
+        return;
+    appendToTextBuffetWithLimit(textBuffers[0], newLogs);
+    
+    if (newLogs.compare(0, 23, "Fixed groupSize for\n  #") == 0)
+    {
+        logInit = true;
+        sscanf(newLogs.c_str()+30, "%u", &logCurTextBuffer);
+        logCurTextBuffer++;
+    }
+    
+    if (logInit)
+    {
+        appendToTextBuffetWithLimit(textBuffers[logCurTextBuffer], newLogs);
+        if (newLogs.compare(0, 19, "Program build log:\n") == 0)
+            logInit = false;
+        return;
+    }
+    
+    if (newLogs.compare(0, 30, "Preparing StressTester for\n  #") == 0)
+    {
+        sscanf(newLogs.c_str()+30, "%u", &logCurTextBuffer);
+        logCurTextBuffer++;
+        appendToTextBuffetWithLimit(textBuffers[logCurTextBuffer], newLogs);
+    }
+    else if (newLogs[0] == '#')
+    {
+        cxuint textBufferIndex;
+        sscanf(newLogs.c_str()+1, "%u", &textBufferIndex);
+        appendToTextBuffetWithLimit(textBuffers[textBufferIndex+1], newLogs);
+    }
+    else if (newLogs.compare(0, 27, "Failed StressTester for\n  #") == 0)
+    {
+        cxuint textBufferIndex;
+        sscanf(newLogs.c_str()+27, "%u", &textBufferIndex);
+        appendToTextBuffetWithLimit(textBuffers[textBufferIndex+1], newLogs);
+    }
+    else if (newLogs.compare(0, 23, "Fixed groupSize for\n  #") == 0)
+    {
+        cxuint textBufferIndex;
+        sscanf(newLogs.c_str()+23, "%u", &textBufferIndex);
+        appendToTextBuffetWithLimit(textBuffers[textBufferIndex+1], newLogs);
+    }
 }
 
 /*
@@ -1058,18 +1197,22 @@ GUIApp::GUIApp(const std::vector<cl::Device>& clDevices,
 try
         : mainWin(nullptr), mainTabs(nullptr), deviceChoiceGrp(nullptr)
 {
-    mainWin = new Fl_Window(600, 440, "CLGPUStress");
+    mainWin = new Fl_Window(600, 465, "GPUStress GUI");
     mainTabs = new Fl_Tabs(0, 0, 600, 400);
     deviceChoiceGrp = new DeviceChoiceGroup(clDevices, *this);
     testConfigsGrp = new TestConfigsGroup(clDevices, configs, *this);
-    testLogsGrp = new TestLogsGroup(clDevices, *this);
+    testLogsGrp = new TestLogsGroup(*this);
+    mainTabs->resizable(deviceChoiceGrp);
     mainTabs->end();
-    startStopButton = new Fl_Button(0, 400, 600, 40, "START");
+    exitAllFailsButton = new Fl_Check_Button(0, 400, 600, 25,
+        "Exits only when all tests failed");
+    startStopButton = new Fl_Button(0, 425, 600, 40, "START");
     startStopButton->labelfont(FL_HELVETICA_BOLD);
     startStopButton->labelsize(20);
     mainWin->resizable(mainTabs);
     mainWin->end();
     
+    installOutputHandler(&logOutputStream, &logOutputStream, &GUIApp::handleOutput, this);
     updateGlobal();
 }
 catch(...)
@@ -1092,11 +1235,11 @@ void GUIApp::updateGlobal()
     else
         startStopButton->deactivate();
     testConfigsGrp->updateDeviceList();
-    testLogsGrp->updateDeviceList();
 }
 
 bool GUIApp::run()
 {
+    Fl::lock();
     mainWin->show();
     int ret = Fl::run();
     if (ret != 0)
@@ -1105,6 +1248,136 @@ bool GUIApp::run()
         return false;
     }
     return true;
+}
+
+void GUIApp::handleOutput(void* data)
+{
+    GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
+ 
+    HandleOutputData* odata = new HandleOutputData;
+    odata->outStr = guiapp->logOutputStream.str();
+    odata->guiapp = guiapp;
+    guiapp->logOutputStream.str(std::string()); // clear all
+    // awake
+    Fl::awake(&GUIApp::handleOutputAwake, odata);
+}
+
+void GUIApp::handleOutputAwake(void* data)
+{
+    HandleOutputData* odata = reinterpret_cast<HandleOutputData*>(data);
+    odata->guiapp->testLogsGrp->updateLogs(odata->outStr);
+    delete odata;
+}
+
+void GUIApp::runStress()
+{
+    const size_t num = deviceChoiceGrp->getClDevicesNum();
+    std::vector<GPUStressTester*> gpuStressTesters;
+    std::vector<std::thread*> testerThreads;
+    
+    int retVal = 0;
+    
+    try
+    {
+        cxuint j = 0;
+        for (cxuint i = 0; i < num; i++)
+            if (deviceChoiceGrp->isClDeviceEnabled(i))
+            {
+                const GPUStressConfig& config = testConfigsGrp->getStressConfig(j);
+                cl::Device clDevice = deviceChoiceGrp->getClDevice(i);
+                GPUStressTester* stressTester = new GPUStressTester(j, clDevice, config);
+                
+                if (!stressTester->isInitialized())
+                {
+                    delete stressTester;
+                    break;
+                }
+                gpuStressTesters.push_back(stressTester);
+                j++;
+            }
+        for (GPUStressTester* tester: gpuStressTesters)
+            testerThreads.push_back(new std::thread(&GPUStressTester::runTest, tester));
+    }
+    catch(const cl::Error& err)
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        logOutputStream << "OpenCL error happened: " << err.what() <<
+                    ", Code: " << err.err() << std::endl;
+        handleOutput(this);
+    }
+    catch(const std::exception& ex)
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        logOutputStream << "Exception happened: " << ex.what() << std::endl;
+        handleOutput(this);
+    }
+    catch(...)
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        logOutputStream << "Unknown exception happened" << std::endl;
+        handleOutput(this);
+    }
+    
+    try
+    {   // finishing
+        // clean up
+        for (size_t i = 0; i < testerThreads.size(); i++)
+            if (testerThreads[i] != nullptr)
+            {
+                try
+                { testerThreads[i]->join(); }
+                catch(const std::exception& ex)
+                {
+                    std::lock_guard<std::mutex> l(stdOutputMutex);
+                    logOutputStream << "Failed join for stress thread #" << i <<
+                            "!!!" << std::endl;
+                    handleOutput(this);
+                    retVal = 1;
+                }
+                delete testerThreads[i];
+                testerThreads[i] = nullptr;
+                if (gpuStressTesters.size() > i &&
+                    gpuStressTesters[i] != nullptr && !gpuStressTesters[i]->isFailed())
+                {
+                    std::lock_guard<std::mutex> l(stdOutputMutex);
+                    logOutputStream << "Finished #" << i << std::endl;
+                    handleOutput(this);
+                }
+            }
+        
+        for (size_t i = 0; i < gpuStressTesters.size(); i++)
+        {
+            if (gpuStressTesters[i]->isFailed())
+            {
+                retVal = 1;
+                std::lock_guard<std::mutex> l(stdOutputMutex);
+                logOutputStream << "Failed #" << i << std::endl;
+                handleOutput(this);
+            }
+            delete gpuStressTesters[i];
+        }
+        
+        // awake for change state
+    }
+    catch(const cl::Error& err)
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        logOutputStream << "OpenCL error happened: " << err.what() <<
+                    ", Code: " << err.err() << std::endl;
+        handleOutput(this);
+    }
+    catch(const std::exception& ex)
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        logOutputStream << "Exception happened: " << ex.what() << std::endl;
+        handleOutput(this);
+    }
+    catch(...)
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        logOutputStream << "Unknown exception happened" << std::endl;
+        handleOutput(this);
+    }
 }
 
 int main(int argc, const char** argv)
