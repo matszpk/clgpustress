@@ -42,6 +42,7 @@
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Choice.H>
 #include <FL/Fl_Check_Button.H>
+#include <FL/Fl_File_Chooser.H>
 #include <FL/Fl_Group.H>
 #include <FL/Fl_Round_Button.H>
 #include <FL/Fl_Spinner.H>
@@ -988,7 +989,7 @@ void TestConfigsGroup::updateDeviceList()
     }
 }
 
-static const cxuint maxLogLength = 10000;
+static const cxuint maxLogLength = 1000000;
 
 /*
  * Test logs group class
@@ -997,8 +998,8 @@ static const cxuint maxLogLength = 10000;
 class TestLogsGroup: public Fl_Group
 {
 private:
+    Fl_File_Chooser* fileChooser;
     Fl_Choice* deviceChoice;
-    Fl_Choice* logTypeChoice;
     
     std::vector<Fl_Text_Buffer*> textBuffers;
     
@@ -1016,6 +1017,8 @@ private:
     static void saveLogCalled(Fl_Widget* widget, void* data);
     static void clearLogCalled(Fl_Widget* widget, void* data);
     
+    static void saveLogChooserCalled(Fl_File_Chooser* fc, void* data);
+    
     GUIApp& guiapp;
 public:
     TestLogsGroup(GUIApp& _guiapp);
@@ -1028,6 +1031,9 @@ public:
 TestLogsGroup::TestLogsGroup(GUIApp& _guiapp)
         : Fl_Group(0, 20, 600, 380, "Test logs"), guiapp(_guiapp)
 {
+    fileChooser = new Fl_File_Chooser(".", "*.log", Fl_File_Chooser::CREATE, "Save log");
+    fileChooser->callback(&TestLogsGroup::saveLogChooserCalled, this);
+    
     deviceChoice = new Fl_Choice(70, 32, 520, 20, "Device:");
     deviceChoice->tooltip("Choose device for which log messages will be displayed");
     deviceChoice->callback(&TestLogsGroup::selectedDeviceChanged, this);
@@ -1065,16 +1071,28 @@ void TestLogsGroup::selectedDeviceChanged(Fl_Widget* widget, void* data)
         return;
     
     t->logOutput->buffer(t->textBuffers[index]);
+    t->logOutput->scroll(1000000, 0);
 }
 
 void TestLogsGroup::saveLogCalled(Fl_Widget* widget, void* data)
 {
     TestLogsGroup* t = reinterpret_cast<TestLogsGroup*>(data);
     cxuint index = t->deviceChoice->value();
-    if (t->textBuffers.size() >= index)
+    if (index >= t->textBuffers.size())
         return;
     
-    //textBuffers[index]->savefile();
+    t->fileChooser->show();
+}
+
+void TestLogsGroup::saveLogChooserCalled(Fl_File_Chooser* fc, void* data)
+{
+    TestLogsGroup* t = reinterpret_cast<TestLogsGroup*>(data);
+    cxuint index = t->deviceChoice->value();
+    if (index >= t->textBuffers.size())
+        return;
+    
+    if (t->textBuffers[index]->savefile(fc->value()))
+        fl_alert("Cant save log!");
 }
 
 void TestLogsGroup::clearLogCalled(Fl_Widget* widget, void* data)
@@ -1235,7 +1253,7 @@ void TestLogsGroup::updateLogs(const std::string& newLogs)
         appendToTextBuffetWithLimit(textBuffers[textBufferIndex+1], newLogs);
     }
     
-    logOutput->scroll(10000, 0);
+    logOutput->scroll(1000000, 0);
 }
 
 /*
@@ -1482,7 +1500,7 @@ int main(int argc, const char** argv)
     outStream = &std::cout;
     errStream = &std::cerr;
     
-    optsContext = poptGetContext("gpustress", argc, argv, optionsTable, 0);
+    optsContext = poptGetContext("gpustress-gui", argc, argv, optionsTable, 0);
     
     bool globalInputAndOutput = false;
     /* parse options */
