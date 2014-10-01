@@ -229,6 +229,7 @@ private:
     Fl_Round_Button* chooseByFilterRadio;
     Fl_Round_Button* chooseFromListRadio;
     
+    Fl_Group* viewGroup;
     Fl_Group* byFilterGroup;
     
     Fl_Check_Button* useAllPlatformsButton;
@@ -266,6 +267,11 @@ public:
     
     size_t getEnabledDevicesCount() const
     { return enabledClDevicesCount; }
+    
+    void activateView()
+    { viewGroup->activate(); }
+    void deactivateView()
+    { viewGroup->deactivate(); }
 };
 
 DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
@@ -273,6 +279,7 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
 {
     enabledClDevicesCount = 0;
     align(FL_ALIGN_TOP_LEFT);
+    viewGroup = new Fl_Group(0, 20, 600, 380);
     Fl_Group* chGrp = new Fl_Group(10, 30, 580, 25);
     chooseByFilterRadio = new Fl_Round_Button(10, 30, 200, 25, "Choose by &filtering");
     chooseByFilterRadio->tooltip("Choose devices by filtering");
@@ -417,6 +424,7 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
     }
     
     resizable(devicesTree);
+    viewGroup->end();
     end();
     
     if (devicesListString != nullptr)
@@ -696,6 +704,9 @@ private:
     cl_device_id curClDeviceID;
     std::vector<cl_device_id> choosenClDeviceIDs;
     std::map<cl_device_id, GPUStressConfig> allConfigsMap;
+    
+    Fl_Group* viewGroup;
+    
     Fl_Choice* deviceChoice;
     SingleTestConfigGroup* singleConfigGroup;
     
@@ -720,6 +731,11 @@ public:
     
     const GPUStressConfig& getStressConfig(cxuint index) const
     { return allConfigsMap.find(choosenClDeviceIDs[index])->second; }
+    
+    void activateView()
+    { viewGroup->activate(); }
+    void deactivateView()
+    { viewGroup->deactivate(); }
 };
 
 TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
@@ -731,6 +747,7 @@ TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
     
     const DeviceChoiceGroup* devChoiceGroup = guiapp.getDeviceChoiceGroup();
     curClDeviceID = nullptr;
+    viewGroup = new Fl_Group(0, 20, 600, 380);
     deviceChoice = new Fl_Choice(70, 32, 520, 20, "Device:");
     deviceChoice->tooltip("Choose device for which test will be configured");
     
@@ -781,6 +798,7 @@ TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
         toAllDevicesButton->deactivate();
         toTheseSameDevsButton->deactivate();
     }
+    viewGroup->end();
     end();
 }
 
@@ -970,7 +988,7 @@ void TestConfigsGroup::updateDeviceList()
     }
 }
 
-static const cxuint maxLogLength = 1000000;
+static const cxuint maxLogLength = 10000;
 
 /*
  * Test logs group class
@@ -1043,7 +1061,7 @@ void TestLogsGroup::selectedDeviceChanged(Fl_Widget* widget, void* data)
     TestLogsGroup* t = reinterpret_cast<TestLogsGroup*>(data);
     //
     size_t index = choice->value();
-    if (t->textBuffers.size() >= index)
+    if (index >= t->textBuffers.size())
         return;
     
     t->logOutput->buffer(t->textBuffers[index]);
@@ -1063,7 +1081,7 @@ void TestLogsGroup::clearLogCalled(Fl_Widget* widget, void* data)
 {
     TestLogsGroup* t = reinterpret_cast<TestLogsGroup*>(data);
     cxuint index = t->deviceChoice->value();
-    if (t->textBuffers.size() >= index)
+    if (index >= t->textBuffers.size())
         return;
     
     t->textBuffers[index]->remove(0, t->textBuffers[index]->length());
@@ -1080,6 +1098,7 @@ void TestLogsGroup::updateDeviceList()
     const DeviceChoiceGroup* devChoiceGroup = guiapp.getDeviceChoiceGroup();
     if (devChoiceGroup->getEnabledDevicesCount() != 0)
     {
+        deviceChoice->add("All devices");
         textBuffers.push_back(new Fl_Text_Buffer());
         
         for (size_t i = 0; i < devChoiceGroup->getClDevicesNum(); i++)
@@ -1166,7 +1185,7 @@ void TestLogsGroup::updateLogs(const std::string& newLogs)
     if (newLogs.compare(0, 23, "Fixed groupSize for\n  #") == 0)
     {
         logInit = true;
-        sscanf(newLogs.c_str()+30, "%u", &logCurTextBuffer);
+        sscanf(newLogs.c_str()+23, "%u", &logCurTextBuffer);
         logCurTextBuffer++;
     }
     
@@ -1182,6 +1201,7 @@ void TestLogsGroup::updateLogs(const std::string& newLogs)
     {
         sscanf(newLogs.c_str()+30, "%u", &logCurTextBuffer);
         logCurTextBuffer++;
+        logInit = true;
         appendToTextBuffetWithLimit(textBuffers[logCurTextBuffer], newLogs);
     }
     else if (newLogs[0] == '#')
@@ -1202,6 +1222,20 @@ void TestLogsGroup::updateLogs(const std::string& newLogs)
         sscanf(newLogs.c_str()+23, "%u", &textBufferIndex);
         appendToTextBuffetWithLimit(textBuffers[textBufferIndex+1], newLogs);
     }
+    else if (newLogs.compare(0, 10, "Finished #") == 0)
+    {
+        cxuint textBufferIndex;
+        sscanf(newLogs.c_str()+10, "%u", &textBufferIndex);
+        appendToTextBuffetWithLimit(textBuffers[textBufferIndex+1], newLogs);
+    }
+    else if (newLogs.compare(0, 8, "Failed #") == 0)
+    {
+        cxuint textBufferIndex;
+        sscanf(newLogs.c_str()+8, "%u", &textBufferIndex);
+        appendToTextBuffetWithLimit(textBuffers[textBufferIndex+1], newLogs);
+    }
+    
+    logOutput->scroll(10000, 0);
 }
 
 /*
@@ -1223,6 +1257,8 @@ try
     mainTabs->end();
     exitAllFailsButton = new Fl_Check_Button(0, 400, 600, 25,
         "Exits only when all tests failed");
+    exitAllFailsButton->value(exitIfAllFails?1:0);
+    
     startStopButton = new Fl_Button(0, 425, 600, 40, "START");
     startStopButton->labelfont(FL_HELVETICA_BOLD);
     startStopButton->labelsize(20);
@@ -1290,8 +1326,9 @@ void GUIApp::handleOutputAwake(void* data)
 void GUIApp::stressEndAwake(void* data)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
-    guiapp->deviceChoiceGrp->activate();
-    guiapp->testConfigsGrp->activate();
+    guiapp->deviceChoiceGrp->activateView();
+    guiapp->testConfigsGrp->activateView();
+    guiapp->startStopButton->activate();
     guiapp->startStopButton->label("START");
     guiapp->exitAllFailsButton->activate();
     guiapp->mainStressThread->join();
@@ -1304,23 +1341,29 @@ void GUIApp::startStopCalled(Fl_Widget* widget, void* data)
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
     if (guiapp->mainStressThread == nullptr)
     {
-        guiapp->deviceChoiceGrp->deactivate();
-        guiapp->testConfigsGrp->deactivate();
+        guiapp->deviceChoiceGrp->deactivateView();
+        guiapp->testConfigsGrp->deactivateView();
         guiapp->startStopButton->label("STOP");
         guiapp->exitAllFailsButton->deactivate();
         guiapp->testLogsGrp->updateDeviceList();
         guiapp->mainTabs->value(guiapp->testLogsGrp);
+        guiapp->mainTabs->redraw();
         
         guiapp->mainStressThread = new std::thread(&GUIApp::runStress, guiapp);
     }
     else
+    {
+        guiapp->startStopButton->deactivate();
         stopAllStressTestersByUser.store(true);
+    }
 }
 
 void GUIApp::runStress()
 {
     stopAllStressTestersIfFail.store(false);
     stopAllStressTestersByUser.store(false);
+    
+    exitIfAllFails = exitAllFailsButton->value();
     
     const size_t num = deviceChoiceGrp->getClDevicesNum();
     std::vector<GPUStressTester*> gpuStressTesters;
