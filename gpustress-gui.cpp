@@ -173,6 +173,7 @@ private:
     
     Fl_Check_Button* exitAllFailsButton;
     Fl_Button* startStopButton;
+    Fl_Box* statusOutput;
     
     std::ostringstream logOutputStream;
     
@@ -191,6 +192,8 @@ private:
     
     static void startStopCalled(Fl_Widget* widget, void* data);
     
+    std::string statusLabel;
+    
 public:
     GUIApp(const std::vector<cl::Device>& clDevices,
            const std::vector<GPUStressConfig>& configs);
@@ -207,6 +210,8 @@ public:
     
     const DeviceChoiceGroup* getDeviceChoiceGroup() const
     { return deviceChoiceGrp; }
+    
+    void setStatusMessage(const char* msg);
     
     void runStress();
 };
@@ -575,10 +580,10 @@ SingleTestConfigGroup::SingleTestConfigGroup(const cl::Device& clDevice,
 {
     box(FL_THIN_UP_FRAME);
     Fl_Group* group = new Fl_Group(20, 60, 560, 220);
-    deviceInfoBox =new Fl_Box(20, 60, 0, 20, "Required memory: MB");
-    deviceInfoBox->align(FL_ALIGN_RIGHT);
-    memoryReqsBox =new Fl_Box(20, 80, 0, 20, "Required memory: MB");
-    memoryReqsBox->align(FL_ALIGN_RIGHT);
+    deviceInfoBox =new Fl_Box(20, 60, 560, 20, "Required memory: MB");
+    deviceInfoBox->align(FL_ALIGN_INSIDE|FL_ALIGN_LEFT);
+    memoryReqsBox =new Fl_Box(20, 80, 560, 20, "Required memory: MB");
+    memoryReqsBox->align(FL_ALIGN_INSIDE|FL_ALIGN_LEFT);
     passItersSpinner = new Fl_Spinner(150, 107, 150, 20, "Pass iterations");
     passItersSpinner->tooltip("Set number of kernel execution per single pass");
     passItersSpinner->range(1., INT32_MAX);
@@ -651,7 +656,6 @@ void SingleTestConfigGroup::recomputeMemoryRequirements()
         devMemReqs = (bufItemsNum<<3)/(1048576.0);
     snprintf(memoryReqsBuffer, 128, "Required memory: %g MB", devMemReqs);
     memoryReqsBox->label(memoryReqsBuffer);
-    redraw();
 }
 
 void SingleTestConfigGroup::setConfig(const cl::Device& _clDevice,
@@ -1088,11 +1092,18 @@ void TestLogsGroup::saveLogChooserCalled(Fl_File_Chooser* fc, void* data)
 {
     TestLogsGroup* t = reinterpret_cast<TestLogsGroup*>(data);
     cxuint index = t->deviceChoice->value();
-    if (index >= t->textBuffers.size())
+    if (index >= t->textBuffers.size() || fc->value() == nullptr ||
+        fl_filename_isdir(fc->value()))
         return;
     
     if (t->textBuffers[index]->savefile(fc->value()))
+    {
         fl_alert("Cant save log!");
+        t->guiapp.setStatusMessage("Can't save log file!");
+    }
+    else // 
+        t->guiapp.setStatusMessage("Save log file saved.");
+        
 }
 
 void TestLogsGroup::clearLogCalled(Fl_Widget* widget, void* data)
@@ -1266,7 +1277,7 @@ try
         : mainWin(nullptr), mainTabs(nullptr), deviceChoiceGrp(nullptr)
 {
     mainStressThread = nullptr;
-    mainWin = new Fl_Window(600, 465, "GPUStress GUI");
+    mainWin = new Fl_Window(600, 490, "GPUStress GUI " PROGRAM_VERSION);
     mainTabs = new Fl_Tabs(0, 0, 600, 400);
     deviceChoiceGrp = new DeviceChoiceGroup(clDevices, *this);
     testConfigsGrp = new TestConfigsGroup(clDevices, configs, *this);
@@ -1281,6 +1292,10 @@ try
     startStopButton->labelfont(FL_HELVETICA_BOLD);
     startStopButton->labelsize(20);
     startStopButton->callback(&GUIApp::startStopCalled, this);
+    
+    statusOutput = new Fl_Box(0, 465, 600, 25);
+    statusOutput->align(FL_ALIGN_INSIDE|FL_ALIGN_LEFT);
+    statusOutput->box(FL_THIN_DOWN_FRAME);
     mainWin->resizable(mainTabs);
     mainWin->end();
     
@@ -1376,6 +1391,12 @@ void GUIApp::startStopCalled(Fl_Widget* widget, void* data)
     }
 }
 
+void GUIApp::setStatusMessage(const char* msg)
+{
+    statusLabel = msg;
+    statusOutput->label(statusLabel.c_str());
+}
+
 void GUIApp::runStress()
 {
     stopAllStressTestersIfFail.store(false);
@@ -1431,8 +1452,7 @@ void GUIApp::runStress()
     }
     
     try
-    {   // finishing
-        // clean up
+    {   // clean up
         for (size_t i = 0; i < testerThreads.size(); i++)
             if (testerThreads[i] != nullptr)
             {
