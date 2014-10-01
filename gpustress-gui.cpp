@@ -399,9 +399,11 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
                 
                 Fl_Tree_Item* item = devicesTree->add(::strdup(devicePath.c_str()));
                 devicesTree->begin();
+                
+                std::string escapedStr = escapeForFlLabel(
+                                devicePath.c_str() + platformPath.size() + 1);
                 Fl_Check_Button* checkButton = new Fl_Check_Button(0, 0, 320, 20,
-                            ::strdup(escapeForFlLabel(
-                                devicePath.c_str() + platformPath.size() + 1).c_str()));
+                            ::strdup(escapedStr.c_str()));
                 checkButton->callback(&DeviceChoiceGroup::changeClDeviceEnable, this);
                 if (devicesListString == nullptr)
                     checkButton->deactivate();
@@ -1098,7 +1100,7 @@ void TestLogsGroup::saveLogChooserCalled(Fl_File_Chooser* fc, void* data)
     
     if (t->textBuffers[index]->savefile(fc->value()))
     {
-        fl_alert("Cant save log!");
+        fl_alert("Cant save log to '%s'!", fc->value());
         t->guiapp.setStatusMessage("Can't save log file!");
     }
     else // 
@@ -1395,6 +1397,7 @@ void GUIApp::setStatusMessage(const char* msg)
 {
     statusLabel = msg;
     statusOutput->label(statusLabel.c_str());
+    mainWin->redraw();
 }
 
 void GUIApp::runStress()
