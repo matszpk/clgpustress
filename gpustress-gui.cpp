@@ -112,6 +112,8 @@ static const poptOption optionsTable[] =
     { nullptr, 0, 0, nullptr, 0 }
 };
 
+static std::vector<std::string> testTypeLabelsTable;
+
 static std::string escapeForFlTree(const std::string& s)
 {
     std::string out;
@@ -281,17 +283,17 @@ public:
 };
 
 DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
-        GUIApp& _guiapp) : Fl_Group(0, 20, 600, 380, "Device choice"), guiapp(_guiapp)
+        GUIApp& _guiapp) : Fl_Group(0, 20, 760, 380, "Device choice"), guiapp(_guiapp)
 {
     enabledClDevicesCount = 0;
     align(FL_ALIGN_TOP_LEFT);
-    viewGroup = new Fl_Group(0, 20, 600, 380);
-    Fl_Group* chGrp = new Fl_Group(10, 30, 580, 25);
+    viewGroup = new Fl_Group(0, 20, 760, 380);
+    Fl_Group* chGrp = new Fl_Group(10, 30, 730, 25);
     chooseByFilterRadio = new Fl_Round_Button(10, 30, 200, 25, "Choose by &filtering");
     chooseByFilterRadio->tooltip("Choose devices by filtering");
     chooseByFilterRadio->type(FL_RADIO_BUTTON);
     chooseByFilterRadio->callback(&DeviceChoiceGroup::choiceTypeIsSet, this);
-    chooseFromListRadio = new Fl_Round_Button(220, 30, 370, 25, "Choose from &list");
+    chooseFromListRadio = new Fl_Round_Button(220, 30, 530, 25, "Choose from &list");
     chooseFromListRadio->tooltip("Choose devices from list");
     chooseFromListRadio->type(FL_RADIO_BUTTON);
     chooseFromListRadio->callback(&DeviceChoiceGroup::choiceTypeIsSet, this);
@@ -361,7 +363,7 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
     if (devicesListString != nullptr)
         byFilterGroup->deactivate();
     
-    devicesTree = new Fl_Tree(220, 75, 370, 315, "Devices list");
+    devicesTree = new Fl_Tree(220, 75, 530, 315, "Devices list");
     devicesTree->align(FL_ALIGN_TOP_LEFT);
     devicesTree->selectmode(FL_TREE_SELECT_NONE);
     devicesTree->showroot(0);
@@ -402,7 +404,7 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
                 
                 std::string escapedStr = escapeForFlLabel(
                                 devicePath.c_str() + platformPath.size() + 1);
-                Fl_Check_Button* checkButton = new Fl_Check_Button(0, 0, 320, 20,
+                Fl_Check_Button* checkButton = new Fl_Check_Button(0, 0, 480, 20,
                             ::strdup(escapedStr.c_str()));
                 checkButton->callback(&DeviceChoiceGroup::changeClDeviceEnable, this);
                 if (devicesListString == nullptr)
@@ -578,13 +580,13 @@ public:
 };
 
 SingleTestConfigGroup::SingleTestConfigGroup(const cl::Device& clDevice,
-        const GPUStressConfig* config) : Fl_Group(10, 60, 580, 300)
+        const GPUStressConfig* config) : Fl_Group(10, 60, 740, 300)
 {
     box(FL_THIN_UP_FRAME);
-    Fl_Group* group = new Fl_Group(20, 60, 560, 220);
-    deviceInfoBox =new Fl_Box(20, 60, 560, 20, "Required memory: MB");
+    Fl_Group* group = new Fl_Group(20, 60, 720, 220);
+    deviceInfoBox =new Fl_Box(20, 60, 720, 20, "Required memory: MB");
     deviceInfoBox->align(FL_ALIGN_INSIDE|FL_ALIGN_LEFT);
-    memoryReqsBox =new Fl_Box(20, 80, 560, 20, "Required memory: MB");
+    memoryReqsBox =new Fl_Box(20, 80, 720, 20, "Required memory: MB");
     memoryReqsBox->align(FL_ALIGN_INSIDE|FL_ALIGN_LEFT);
     passItersSpinner = new Fl_Spinner(150, 107, 150, 20, "Pass iterations");
     passItersSpinner->tooltip("Set number of kernel execution per single pass");
@@ -608,13 +610,13 @@ SingleTestConfigGroup::SingleTestConfigGroup(const cl::Device& clDevice,
     kitersNumSpinner->step(1.0);
     builtinKernelChoice = new Fl_Choice(150, 232, 340, 20, "T&est type");
     builtinKernelChoice->tooltip("Set test type (builtin kernel)");
-    for (const char** p = testDescsTable; *p != nullptr; p++)
-        builtinKernelChoice->add(*p);
+    for (const std::string& s: testTypeLabelsTable)
+        builtinKernelChoice->add(s.c_str());
     inputAndOutputButton = new Fl_Check_Button(130, 257, 200, 25, "&Input and output");
     inputAndOutputButton->tooltip("Enable an using separate input buffer and output buffer");
     group->end();
     
-    Fl_Box* box = new Fl_Box(20, 280, 580, 80);
+    Fl_Box* box = new Fl_Box(20, 280, 740, 80);
     resizable(box);
     end();
     
@@ -747,15 +749,15 @@ public:
 
 TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
             const std::vector<GPUStressConfig>& configs, GUIApp& _guiapp)
-        : Fl_Group(0, 20, 600, 380, "Test configs"), guiapp(_guiapp)
+        : Fl_Group(0, 20, 760, 380, "Test configs"), guiapp(_guiapp)
 {   /* fill up configurations */
     for (size_t i = 0; i < configs.size(); i++)
         allConfigsMap.insert(std::make_pair(clDevices[i](), configs[i]));
     
     const DeviceChoiceGroup* devChoiceGroup = guiapp.getDeviceChoiceGroup();
     curClDeviceID = nullptr;
-    viewGroup = new Fl_Group(0, 20, 600, 380);
-    deviceChoice = new Fl_Choice(70, 32, 520, 20, "Device:");
+    viewGroup = new Fl_Group(0, 20, 760, 380);
+    deviceChoice = new Fl_Choice(70, 32, 680, 20, "Device:");
     deviceChoice->tooltip("Choose device for which test will be configured");
     
     for (size_t i = 0; i < devChoiceGroup->getClDevicesNum(); i++)
@@ -791,11 +793,11 @@ TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
     deviceChoice->callback(&TestConfigsGroup::selectedDeviceChanged, this);
     singleConfigGroup->installCallback(&TestConfigsGroup::singleConfigChanged, this);
     
-    toAllDevicesButton = new Fl_Button(10, 365, 285, 25, "Copy to &all devices");
+    toAllDevicesButton = new Fl_Button(10, 365, 365, 25, "Copy to &all devices");
     toAllDevicesButton->tooltip("Copy this test configuration to all devices");
     toAllDevicesButton->callback(&TestConfigsGroup::copyToAllDevicesCalled, this);
     
-    toTheseSameDevsButton = new Fl_Button(305, 365, 285, 25, "Copy to the&se same devices");
+    toTheseSameDevsButton = new Fl_Button(385, 365, 365, 25, "Copy to the&se same devices");
     toTheseSameDevsButton->tooltip(
             "Copy this test configuration to all devices with this same configuration");
     toTheseSameDevsButton->callback(&TestConfigsGroup::copyToTheseSameCalled, this);
@@ -1035,18 +1037,18 @@ public:
 };
 
 TestLogsGroup::TestLogsGroup(GUIApp& _guiapp)
-        : Fl_Group(0, 20, 600, 380, "Test logs"), guiapp(_guiapp)
+        : Fl_Group(0, 20, 760, 380, "Test logs"), guiapp(_guiapp)
 {
     fileChooser = new Fl_File_Chooser(".", "*.log", Fl_File_Chooser::CREATE, "Save log");
     fileChooser->callback(&TestLogsGroup::saveLogChooserCalled, this);
     
-    deviceChoice = new Fl_Choice(70, 32, 520, 20, "Device:");
+    deviceChoice = new Fl_Choice(70, 32, 680, 20, "Device:");
     deviceChoice->tooltip("Choose device for which log messages will be displayed");
     deviceChoice->callback(&TestLogsGroup::selectedDeviceChanged, this);
     
     textBuffers.push_back(new Fl_Text_Buffer());
     
-    logOutput = new Fl_Text_Display(10, 60, 580, 300);
+    logOutput = new Fl_Text_Display(10, 60, 740, 300);
     logOutput->textfont(FL_COURIER);
     logOutput->textsize(12);
     
@@ -1054,10 +1056,10 @@ TestLogsGroup::TestLogsGroup(GUIApp& _guiapp)
     
     resizable(logOutput);
     
-    saveLogButton = new Fl_Button(10, 365, 285, 25, "&Save log");
+    saveLogButton = new Fl_Button(10, 365, 365, 25, "&Save log");
     saveLogButton->tooltip("Save choosen log to file");
     saveLogButton->callback(&TestLogsGroup::saveLogCalled, this);
-    clearLogButton = new Fl_Button(305, 365, 285, 25, "&Clear log");
+    clearLogButton = new Fl_Button(385, 365, 365, 25, "&Clear log");
     clearLogButton->tooltip("Clear choosen log");
     clearLogButton->callback(&TestLogsGroup::clearLogCalled, this);
     
@@ -1279,23 +1281,23 @@ try
         : mainWin(nullptr), mainTabs(nullptr), deviceChoiceGrp(nullptr)
 {
     mainStressThread = nullptr;
-    mainWin = new Fl_Window(600, 490, "GPUStress GUI " PROGRAM_VERSION);
-    mainTabs = new Fl_Tabs(0, 0, 600, 400);
+    mainWin = new Fl_Window(760, 490, "GPUStress GUI " PROGRAM_VERSION);
+    mainTabs = new Fl_Tabs(0, 0, 760, 400);
     deviceChoiceGrp = new DeviceChoiceGroup(clDevices, *this);
     testConfigsGrp = new TestConfigsGroup(clDevices, configs, *this);
     testLogsGrp = new TestLogsGroup(*this);
     mainTabs->resizable(deviceChoiceGrp);
     mainTabs->end();
-    exitAllFailsButton = new Fl_Check_Button(0, 400, 600, 25,
+    exitAllFailsButton = new Fl_Check_Button(0, 400, 760, 25,
         "Exits only when all tests failed");
     exitAllFailsButton->value(exitIfAllFails?1:0);
     
-    startStopButton = new Fl_Button(0, 425, 600, 40, "START");
+    startStopButton = new Fl_Button(0, 425, 760, 40, "START");
     startStopButton->labelfont(FL_HELVETICA_BOLD);
     startStopButton->labelsize(20);
     startStopButton->callback(&GUIApp::startStopCalled, this);
     
-    statusOutput = new Fl_Box(0, 465, 600, 25);
+    statusOutput = new Fl_Box(0, 465, 760, 25);
     statusOutput->align(FL_ALIGN_INSIDE|FL_ALIGN_LEFT);
     statusOutput->box(FL_THIN_DOWN_FRAME);
     mainWin->resizable(mainTabs);
@@ -1579,6 +1581,15 @@ int main(int argc, const char** argv)
     std::vector<GPUStressConfig> gpuStressConfigs;
     try
     {
+        for (cxuint k = 0; testDescsTable[k] != nullptr; k++)
+        {
+            char buf[32];
+            snprintf(buf, 32, "%u - ", k);
+            std::string label(buf);
+            label += testDescsTable[k];
+            testTypeLabelsTable.push_back(label);
+        }
+        
         std::vector<cl::Device> choosenClDevices;
         if (devicesListString == nullptr)
             choosenClDevices = getChoosenCLDevices();
