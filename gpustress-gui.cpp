@@ -1040,6 +1040,7 @@ TestLogsGroup::TestLogsGroup(GUIApp& _guiapp)
 {
     fileChooser = new Fl_File_Chooser(".", "*.log", Fl_File_Chooser::CREATE, "Save log");
     fileChooser->callback(&TestLogsGroup::saveLogChooserCalled, this);
+    fileChooser->ok_label("Save");
     
     deviceChoice = new Fl_Choice(70, 32, 680, 20, "Device:");
     deviceChoice->tooltip("Choose device for which log messages will be displayed");
@@ -1095,8 +1096,7 @@ void TestLogsGroup::saveLogChooserCalled(Fl_File_Chooser* fc, void* data)
 {
     TestLogsGroup* t = reinterpret_cast<TestLogsGroup*>(data);
     cxuint index = t->deviceChoice->value();
-    if (index >= t->textBuffers.size() || fc->value() == nullptr ||
-        fl_filename_isdir(fc->value()))
+    if (index >= t->textBuffers.size() || fc->value() == nullptr || fc->shown())
         return;
     
     if (t->textBuffers[index]->savefile(fc->value()))
