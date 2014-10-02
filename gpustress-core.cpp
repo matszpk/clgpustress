@@ -277,8 +277,8 @@ std::ostream* errStream = nullptr;
 std::atomic<bool> stopAllStressTestersIfFail(false);
 std::atomic<bool> stopAllStressTestersByUser(false);
 
-extern OutputHandler outputHandler = nullptr;
-extern void* outputHandlerData = nullptr;
+OutputHandler outputHandler = nullptr;
+void* outputHandlerData = nullptr;
 
 static inline void handleOutput()
 {

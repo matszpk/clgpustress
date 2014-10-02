@@ -175,7 +175,6 @@ private:
     
     Fl_Check_Button* exitAllFailsButton;
     Fl_Button* startStopButton;
-    Fl_Box* statusOutput;
     
     std::ostringstream logOutputStream;
     
@@ -187,14 +186,14 @@ private:
         GUIApp* guiapp;
     };
     
+    bool testFinishedWithException;
+    
     static void handleOutput(void* data);
     static void handleOutputAwake(void* data);
     
     static void stressEndAwake(void* data);
     
     static void startStopCalled(Fl_Widget* widget, void* data);
-    
-    std::string statusLabel;
     
 public:
     GUIApp(const std::vector<cl::Device>& clDevices,
@@ -213,9 +212,9 @@ public:
     const DeviceChoiceGroup* getDeviceChoiceGroup() const
     { return deviceChoiceGrp; }
     
-    void setStatusMessage(const char* msg);
-    
     void runStress();
+    
+    void setTabToTestLogs();
 };
 
 /*
@@ -1032,8 +1031,8 @@ public:
     TestLogsGroup(GUIApp& _guiapp);
     
     void updateDeviceList();
-    
     void updateLogs(const std::string& newLogs);
+    void choiceTestLog(cxuint index);
 };
 
 TestLogsGroup::TestLogsGroup(GUIApp& _guiapp)
@@ -1101,13 +1100,7 @@ void TestLogsGroup::saveLogChooserCalled(Fl_File_Chooser* fc, void* data)
         return;
     
     if (t->textBuffers[index]->savefile(fc->value()))
-    {
-        fl_alert("Cant save log to '%s'!", fc->value());
-        t->guiapp.setStatusMessage("Can't save log file!");
-    }
-    else // 
-        t->guiapp.setStatusMessage("Save log file saved.");
-        
+        fl_alert("Can't save log to '%s'!", fc->value());
 }
 
 void TestLogsGroup::clearLogCalled(Fl_Widget* widget, void* data)
@@ -1248,6 +1241,11 @@ void TestLogsGroup::updateLogs(const std::string& newLogs)
         cxuint textBufferIndex;
         sscanf(newLogs.c_str()+27, "%u", &textBufferIndex);
         appendToTextBuffetWithLimit(textBuffers[textBufferIndex+1], newLogs);
+        
+        guiapp.setTabToTestLogs();
+        choiceTestLog(textBufferIndex+1);
+        fl_alert("Failed test for #%u: %s!", textBufferIndex+1,
+                 choiceLabels[textBufferIndex].c_str());
     }
     else if (newLogs.compare(0, 23, "Fixed groupSize for\n  #") == 0)
     {
@@ -1271,6 +1269,12 @@ void TestLogsGroup::updateLogs(const std::string& newLogs)
     logOutput->scroll(1000000, 0);
 }
 
+void TestLogsGroup::choiceTestLog(cxuint index)
+{
+    deviceChoice->value(index);
+    selectedDeviceChanged(deviceChoice, this);
+}
+
 /*
  * main GUI app class
  */
@@ -1281,7 +1285,7 @@ try
         : mainWin(nullptr), mainTabs(nullptr), deviceChoiceGrp(nullptr)
 {
     mainStressThread = nullptr;
-    mainWin = new Fl_Window(760, 490, "GPUStress GUI " PROGRAM_VERSION);
+    mainWin = new Fl_Window(760, 465, "GPUStress GUI " PROGRAM_VERSION);
     mainTabs = new Fl_Tabs(0, 0, 760, 400);
     deviceChoiceGrp = new DeviceChoiceGroup(clDevices, *this);
     testConfigsGrp = new TestConfigsGroup(clDevices, configs, *this);
@@ -1297,9 +1301,6 @@ try
     startStopButton->labelsize(20);
     startStopButton->callback(&GUIApp::startStopCalled, this);
     
-    statusOutput = new Fl_Box(0, 465, 760, 25);
-    statusOutput->align(FL_ALIGN_INSIDE|FL_ALIGN_LEFT);
-    statusOutput->box(FL_THIN_DOWN_FRAME);
     mainWin->resizable(mainTabs);
     mainWin->end();
     
@@ -1371,6 +1372,12 @@ void GUIApp::stressEndAwake(void* data)
     guiapp->mainStressThread->join();
     delete guiapp->mainStressThread;
     guiapp->mainStressThread = nullptr;
+    if (guiapp->testFinishedWithException)
+    {
+        guiapp->setTabToTestLogs();
+        guiapp->testLogsGrp->choiceTestLog(0);
+        fl_alert("Fatal exception on stress testing!");
+    }
 }
 
 void GUIApp::startStopCalled(Fl_Widget* widget, void* data)
@@ -1395,15 +1402,9 @@ void GUIApp::startStopCalled(Fl_Widget* widget, void* data)
     }
 }
 
-void GUIApp::setStatusMessage(const char* msg)
-{
-    statusLabel = msg;
-    statusOutput->label(statusLabel.c_str());
-    mainWin->redraw();
-}
-
 void GUIApp::runStress()
 {
+    testFinishedWithException = false;
     stopAllStressTestersIfFail.store(false);
     stopAllStressTestersByUser.store(false);
     
@@ -1412,8 +1413,6 @@ void GUIApp::runStress()
     const size_t num = deviceChoiceGrp->getClDevicesNum();
     std::vector<GPUStressTester*> gpuStressTesters;
     std::vector<std::thread*> testerThreads;
-    
-    int retVal = 0;
     
     try
     {
@@ -1438,6 +1437,7 @@ void GUIApp::runStress()
     }
     catch(const cl::Error& err)
     {
+        testFinishedWithException = true;
         std::lock_guard<std::mutex> l(stdOutputMutex);
         logOutputStream << "OpenCL error happened: " << err.what() <<
                     ", Code: " << err.err() << std::endl;
@@ -1445,12 +1445,14 @@ void GUIApp::runStress()
     }
     catch(const std::exception& ex)
     {
+        testFinishedWithException = true;
         std::lock_guard<std::mutex> l(stdOutputMutex);
         logOutputStream << "Exception happened: " << ex.what() << std::endl;
         handleOutput(this);
     }
     catch(...)
     {
+        testFinishedWithException = true;
         std::lock_guard<std::mutex> l(stdOutputMutex);
         logOutputStream << "Unknown exception happened" << std::endl;
         handleOutput(this);
@@ -1469,7 +1471,6 @@ void GUIApp::runStress()
                     logOutputStream << "Failed join for stress thread #" << i <<
                             "!!!" << std::endl;
                     handleOutput(this);
-                    retVal = 1;
                 }
                 delete testerThreads[i];
                 testerThreads[i] = nullptr;
@@ -1486,35 +1487,44 @@ void GUIApp::runStress()
         {
             if (gpuStressTesters[i]->isFailed())
             {
-                retVal = 1;
                 std::lock_guard<std::mutex> l(stdOutputMutex);
                 logOutputStream << "Failed #" << i << std::endl;
                 handleOutput(this);
             }
             delete gpuStressTesters[i];
         }
-        
-        Fl::awake(&GUIApp::stressEndAwake, this);
     }
     catch(const cl::Error& err)
     {
+        testFinishedWithException = true;
         std::lock_guard<std::mutex> l(stdOutputMutex);
         logOutputStream << "OpenCL error happened: " << err.what() <<
                     ", Code: " << err.err() << std::endl;
         handleOutput(this);
+        Fl::awake(&GUIApp::stressEndAwake, this);
     }
     catch(const std::exception& ex)
     {
+        testFinishedWithException = true;
         std::lock_guard<std::mutex> l(stdOutputMutex);
         logOutputStream << "Exception happened: " << ex.what() << std::endl;
         handleOutput(this);
+        Fl::awake(&GUIApp::stressEndAwake, this);
     }
     catch(...)
     {
+        testFinishedWithException = true;
         std::lock_guard<std::mutex> l(stdOutputMutex);
         logOutputStream << "Unknown exception happened" << std::endl;
         handleOutput(this);
     }
+    
+    Fl::awake(&GUIApp::stressEndAwake, this);
+}
+
+void GUIApp::setTabToTestLogs()
+{
+    mainTabs->value(testLogsGrp);
 }
 
 int main(int argc, const char** argv)
