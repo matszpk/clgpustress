@@ -403,8 +403,9 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
                 Fl_Tree_Item* item = devicesTree->add(labels.back().c_str());
                 devicesTree->begin();
                 
-                std::string escapedStr = escapeForFlLabel(
-                                devicePath.c_str() + platformPath.size() + 1);
+                std::string deviceLabel(numBuf);
+                deviceLabel += deviceName;
+                std::string escapedStr = escapeForFlLabel(deviceLabel);
                 labels.push_back(escapedStr);
                 Fl_Check_Button* checkButton = new Fl_Check_Button(0, 0, 480, 20,
                             labels.back().c_str());
@@ -426,8 +427,8 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
                 char buf[128];
                 snprintf(buf, 128, "Clock: %u MHz, Memory: %u MB, CompUnits: %u,"
                         " MaxGroupSize: " SIZE_T_SPEC, deviceClock,
-                         cxuint(memSize>>20), maxComputeUnits,
-                         maxWorkGroupSize);
+                        cxuint(memSize>>20), maxComputeUnits,
+                        maxWorkGroupSize);
                 labels.push_back(buf);
                 checkButton->tooltip(labels.back().c_str());
                 
@@ -774,7 +775,12 @@ TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
             std::string deviceName;
             clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
             
-            choiceLabels.push_back(escapeForFlMenu(platformName + ":" + deviceName));
+            char buf[32];
+            snprintf(buf, 32, SIZE_T_SPEC ": ", i);
+            std::string label(buf);
+            label += platformName + ":" + deviceName;
+            
+            choiceLabels.push_back(escapeForFlMenu(label));
             deviceChoice->add(choiceLabels.back().c_str());
             
             if (curClDeviceID == nullptr)
@@ -956,7 +962,13 @@ void TestConfigsGroup::updateDeviceList()
             clPlatform.getInfo(CL_PLATFORM_NAME, &platformName);
             std::string deviceName;
             clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
-            choiceLabels.push_back(escapeForFlMenu(platformName + ":" + deviceName));
+            
+            char buf[32];
+            snprintf(buf, 32, SIZE_T_SPEC ": ", i);
+            std::string label(buf);
+            label += platformName + ":" + deviceName;
+            
+            choiceLabels.push_back(escapeForFlMenu(label));
             deviceChoice->add(choiceLabels.back().c_str());
             
             if (curClDeviceID == nullptr)
@@ -1140,7 +1152,11 @@ void TestLogsGroup::updateDeviceList()
                 std::string deviceName;
                 clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
                 
-                choiceLabels.push_back(escapeForFlMenu(platformName + ":" + deviceName));
+                char buf[32];
+                snprintf(buf, 32, SIZE_T_SPEC ": ", i);
+                std::string label(buf);
+                label += platformName + ":" + deviceName;
+                choiceLabels.push_back(escapeForFlMenu(label));
                 deviceChoice->add(choiceLabels.back().c_str());
                 textBuffers.push_back(new Fl_Text_Buffer());
             }
