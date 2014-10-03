@@ -637,7 +637,7 @@ void GPUStressTester::calibrateKernel()
             for (cxuint k = 0; k < 5; k++)
             {
                 if (stopAllStressTestersByUser.load())
-                    return;
+                    return; // if stopped by user
                 
                 if (!useInputAndOutput) // ensure always this same input data for kernel
                     clCmdQueue1.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0),

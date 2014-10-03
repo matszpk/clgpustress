@@ -4,17 +4,25 @@ LDFLAGS = /O2
 
 all: gpustress.exe
 
-INCDIRS = /I..\popt-1.16\ /I..\OpenCL1.1\include
+INCDIRS = /I..\popt-1.16\ /I..\OpenCL1.1\include /I..\FLTK1.3\include
 POPTLIB = ..\popt-1.16\popt.lib
 # POPTLIB = ..\popt-1.16-32\popt.lib
 OPENCLLIB = ..\OpenCL1.1\lib64\OpenCL.lib
 # OPENCLLIB = ..\OpenCL1.1\lib32\OpenCL.lib
+GUILIB = ..\FLTK1.3\lib\fltk.lib
 
-gpustress.exe: gpustress.obj clkernels.obj
+gpustress-cli.exe: gpustress-cli.obj gpustress-core.obj clkernels.obj
 	$(CXX) $(LDFLAGS) $(CXXFLAGS) $** $(POPTLIB) $(OPENCLLIB)
+
+gpustress-gui.exe: gpustress-gui.obj gpustress-core.obj clkernels.obj
+	$(CXX) $(LDFLAGS) $(CXXFLAGS) $** $(POPTLIB) $(OPENCLLIB) ${GUILIB}
 
 .cpp.obj:
 	$(CXX) $(CXXFLAGS) $(INCDIRS) /c $<
 
+gpustress-cli.obj: gpustress-cli.cpp gpustress-core.h
+gpustress-core.obj: gpustress-core.cpp gpustress-core.h
+gpustress-gui.obj: gpustress-gui.cpp gpustress-core.h
+
 clean:
-	del *.obj gpustress.exe
+	del *.obj gpustress-cli.exe gpustress-gui.exe

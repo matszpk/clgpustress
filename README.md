@@ -32,9 +32,10 @@ If results mismatches program terminates stress test for failed device.
 By default program terminates stress testing when any device fails. You can add
 '-f' or '--exitIfAllFails' option to force continue stress testing for other devices.
 
-### GUI version
+### Program version
 
-Version with GUI is named as 'gpustress-gui'.
+- Version with command-line interface is named as 'gpustress-cli'.
+- Version with GUI is named as 'gpustress-gui'.
 
 ### Software requirements:
 
@@ -84,10 +85,10 @@ Examples of usage:
 - simplest usage: ./gpustress
 - run stress: ./gpustress -G -W512 -S32 -B2 -T0
 - run stress only on AMD devices: ./gpustress -A
-- run stress only on NVIDIA devices: ./gpustress -N
-- run stress only on Intel devices: ./gpustress -E
-- run stress only on first device from first platform: ./gpustress -L 0:0
-- run stress only on second device from second platform: ./gpustress -L 1:1
+- run stress only on NVIDIA devices: ./gpustress-cli -N
+- run stress only on Intel devices: ./gpustress-cli -E
+- run stress only on first device from first platform: ./gpustress-cli -L 0:0
+- run stress only on second device from second platform: ./gpustress-cli -L 1:1
 
 If option '-j' is not specified then program automatically calibrates
 test for device for performance and memory bandwidth.
@@ -132,9 +133,9 @@ calibates kernel for a memory bandwidth and a performance.
 GPUStress provides simple method to select devices. To print all available devices you can
 use '-l' option:
 
-./gpustress -l
+./gpustress-cli -l
 
-gpustress prints all OpenCL devices, also prints their the platform id and the device id.
+GPUstress prints all OpenCL devices, also prints their the platform id and the device id.
 
 GPUStress allows to select devices from specified the OpenCL platform, by using following options:
 
@@ -160,7 +161,7 @@ Moreover, you can choose a particular devices from a particular platforms with u
 '-L' or '--devicesList' option. Parameter of this option is comma-separated list of
 the platform id and the device id separated by using colon. Following example:
 
-./gpustress -L 0:0,1:1,1:2,1:3
+./gpustress-cli -L 0:0,1:1,1:2,1:3
 
 chooses first device from first platform; second,third,fourth device from second platform.
 
@@ -177,7 +178,7 @@ applied for all devices).
 
 Examples:
 
-gpustress -L 0:0,0:1 -W 512,4 -B 2 -T 1 -I YN
+./gpustress-cli -L 0:0,0:1 -W 512,4 -B 2 -T 1 -I YN
 
 chooses for all devices blocksNum=2, testType=1, for first device: workFactor=512, inAndOut=yes
 ; for second device: workFactor=4, inAndOut=no.

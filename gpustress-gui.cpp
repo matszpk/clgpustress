@@ -441,8 +441,7 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
             }
         }
     }
-    
-    resizable(devicesTree);
+    viewGroup->resizable(devicesTree);
     viewGroup->end();
     end();
     
@@ -597,35 +596,35 @@ SingleTestConfigGroup::SingleTestConfigGroup(const cl::Device& clDevice,
     deviceInfoBox->align(FL_ALIGN_INSIDE|FL_ALIGN_LEFT);
     memoryReqsBox =new Fl_Box(20, 90, 720, 20, "Required memory: MB");
     memoryReqsBox->align(FL_ALIGN_INSIDE|FL_ALIGN_LEFT);
-    passItersSpinner = new Fl_Spinner(150, 127, 150, 20, "Pass iterations");
+    passItersSpinner = new Fl_Spinner(170, 127, 150, 20, "Pass iterations");
     passItersSpinner->tooltip("Set number of kernel execution per single pass");
     passItersSpinner->range(1., INT32_MAX);
     passItersSpinner->step(1.0);
-    groupSizeSpinner = new Fl_Spinner(150, 152, 150, 20, "Group size");
+    groupSizeSpinner = new Fl_Spinner(170, 152, 150, 20, "Group size");
     groupSizeSpinner->tooltip("Set the OpenCL work group size");
     groupSizeSpinner->range(0., INT32_MAX);
     groupSizeSpinner->step(1.0);
-    workFactorSpinner = new Fl_Spinner(150, 177, 150, 20, "Work factor");
+    workFactorSpinner = new Fl_Spinner(170, 177, 150, 20, "Work factor");
     workFactorSpinner->tooltip("Set work factor (multiplies work size)");
     workFactorSpinner->range(1., INT32_MAX);
     workFactorSpinner->step(1.0);
-    blocksNumSpinner = new Fl_Spinner(150, 202, 150, 20, "Blocks number");
+    blocksNumSpinner = new Fl_Spinner(170, 202, 150, 20, "Blocks number");
     blocksNumSpinner->tooltip("Set number of blocks loaded/stored in kernel execution");
     blocksNumSpinner->range(1., 16);
     blocksNumSpinner->step(1.0);
-    kitersNumSpinner = new Fl_Spinner(150, 227, 150, 20, "Kernel iterations");
+    kitersNumSpinner = new Fl_Spinner(170, 227, 150, 20, "Kernel iterations");
     kitersNumSpinner->tooltip("Set number of operations between load and store");
     kitersNumSpinner->range(0., 100);
     kitersNumSpinner->step(1.0);
-    builtinKernelChoice = new Fl_Choice(150, 252, 340, 20, "T&est type");
+    builtinKernelChoice = new Fl_Choice(170, 252, 340, 20, "T&est type");
     builtinKernelChoice->tooltip("Set test type (builtin kernel)");
     for (const std::string& s: testTypeLabelsTable)
         builtinKernelChoice->add(s.c_str());
-    inputAndOutputButton = new Fl_Check_Button(130, 277, 200, 25, "&Input and output");
+    inputAndOutputButton = new Fl_Check_Button(140, 277, 200, 25, "&Input and output");
     inputAndOutputButton->tooltip("Enable an using separate input buffer and output buffer");
     group->end();
     
-    Fl_Box* box = new Fl_Box(20, 280, 740, 80);
+    Fl_Box* box = new Fl_Box(20, 300, 740, 60);
     resizable(box);
     end();
     
@@ -797,8 +796,6 @@ TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
     else // if empty
         singleConfigGroup = new SingleTestConfigGroup(cl::Device(), nullptr);
     
-    resizable(singleConfigGroup);
-    
     deviceChoice->callback(&TestConfigsGroup::selectedDeviceChanged, this);
     singleConfigGroup->installCallback(&TestConfigsGroup::singleConfigChanged, this);
     
@@ -816,6 +813,8 @@ TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
         toAllDevicesButton->deactivate();
         toTheseSameDevsButton->deactivate();
     }
+    
+    viewGroup->resizable(singleConfigGroup);
     viewGroup->end();
     end();
 }
@@ -1333,13 +1332,15 @@ try
     alertWin->end();
     
     mainWin = new Fl_Window(760, 465, "GPUStress GUI " PROGRAM_VERSION);
+    mainWin->size_range(600, 410, 0, 0);
     mainTabs = new Fl_Tabs(0, 0, 760, 400);
     deviceChoiceGrp = new DeviceChoiceGroup(clDevices, *this);
     testConfigsGrp = new TestConfigsGroup(clDevices, configs, *this);
     testLogsGrp = new TestLogsGroup(*this);
     
     aboutGrp = new Fl_Group(0, 20, 760, 380, "About");
-    Fl_Box* aboutText = new Fl_Box(10, 10, 740, 360);
+    Fl_Box* aboutText = new Fl_Box(10, 30, 740, 360);
+    aboutText->labelfont(FL_HELVETICA_BOLD);
     aboutText->label("CLGPUStress GUI " PROGRAM_VERSION " by Mateusz Szpakowski.\n"
         "Program is distributed under terms of the GPLv2.\n"
         "\n"
@@ -1350,10 +1351,11 @@ try
     mainTabs->resizable(deviceChoiceGrp);
     mainTabs->end();
     exitAllFailsButton = new Fl_Check_Button(0, 400, 760, 25,
-        "Exits only when all tests failed");
+        "Stops stress testing only when all tests failed");
     exitAllFailsButton->value(exitIfAllFails?1:0);
     
     startStopButton = new Fl_Button(0, 425, 760, 40, "START");
+    startStopButton->tooltip("Start stress test for all devices");
     startStopButton->labelfont(FL_HELVETICA_BOLD);
     startStopButton->labelsize(20);
     startStopButton->callback(&GUIApp::startStopCalled, this);
@@ -1426,6 +1428,7 @@ void GUIApp::stressEndAwake(void* data)
     guiapp->testConfigsGrp->activateView();
     guiapp->startStopButton->activate();
     guiapp->startStopButton->label("START");
+    guiapp->startStopButton->tooltip("Start stress test for all devices");
     guiapp->exitAllFailsButton->activate();
     guiapp->mainStressThread->join();
     delete guiapp->mainStressThread;
@@ -1446,6 +1449,7 @@ void GUIApp::startStopCalled(Fl_Widget* widget, void* data)
         guiapp->deviceChoiceGrp->deactivateView();
         guiapp->testConfigsGrp->deactivateView();
         guiapp->startStopButton->label("STOP");
+        guiapp->startStopButton->tooltip("Stop stress test for all devices");
         guiapp->exitAllFailsButton->deactivate();
         guiapp->testLogsGrp->updateDeviceList();
         guiapp->mainTabs->value(guiapp->testLogsGrp);
@@ -1462,6 +1466,8 @@ void GUIApp::startStopCalled(Fl_Widget* widget, void* data)
 
 void GUIApp::runStress()
 {
+    logOutputStream.flush();
+    logOutputStream.str(std::string());
     testFinishedWithException = false;
     stopAllStressTestersIfFail.store(false);
     stopAllStressTestersByUser.store(false);
