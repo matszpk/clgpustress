@@ -44,12 +44,14 @@
 #include <FL/Fl_Check_Button.H>
 #include <FL/Fl_File_Chooser.H>
 #include <FL/Fl_Group.H>
+#include <FL/Fl_Return_Button.H>
 #include <FL/Fl_Round_Button.H>
 #include <FL/Fl_Spinner.H>
 #include <FL/Fl_Text_Display.H>
 #include <FL/Fl_Tabs.H>
 #include <FL/Fl_Tree.H>
 #include <FL/Fl_Window.H>
+#include <FL/fl_ask.H>
 
 #include "gpustress-core.h"
 
@@ -60,7 +62,7 @@
 #  define SIZE_T_SPEC "%zu"
 #endif
 
-#define PROGRAM_VERSION "0.0.5.3"
+#define PROGRAM_VERSION "0.0.8"
 
 extern const char* testDescsTable[];
 
@@ -166,6 +168,7 @@ class TestLogsGroup;
 class GUIApp
 {
 private:
+    Fl_Window* alertWin;
     Fl_Window* mainWin;
     Fl_Tabs* mainTabs;
     
@@ -194,6 +197,7 @@ private:
     static void stressEndAwake(void* data);
     
     static void startStopCalled(Fl_Widget* widget, void* data);
+    static void dismissAlertCalled(Fl_Widget* widget, void* data);
     
 public:
     GUIApp(const std::vector<cl::Device>& clDevices,
@@ -1211,7 +1215,10 @@ void TestLogsGroup::updateLogs(const std::string& newLogs)
     if (newLogs.compare(0, 23, "Fixed groupSize for\n  #") == 0)
     {
         logInit = true;
-        sscanf(newLogs.c_str()+23, "%u", &logCurTextBuffer);
+        if (sscanf(newLogs.c_str()+23, "%u", &logCurTextBuffer) != 1)
+            throw MyException("Fatal parse log output!");
+        if (logCurTextBuffer+1 >= textBuffers.size())
+            throw MyException("Fatal error: Device ID out of range in log output!");
         logCurTextBuffer++;
     }
     
@@ -1225,7 +1232,10 @@ void TestLogsGroup::updateLogs(const std::string& newLogs)
     
     if (newLogs.compare(0, 30, "Preparing StressTester for\n  #") == 0)
     {
-        sscanf(newLogs.c_str()+30, "%u", &logCurTextBuffer);
+        if (sscanf(newLogs.c_str()+30, "%u", &logCurTextBuffer) != 1)
+            throw MyException("Fatal error: parse log output!");
+        if (logCurTextBuffer+1 >= textBuffers.size())
+            throw MyException("Fatal error: Device ID out of range in log output!");
         logCurTextBuffer++;
         logInit = true;
         appendToTextBuffetWithLimit(textBuffers[logCurTextBuffer], newLogs);
@@ -1233,13 +1243,19 @@ void TestLogsGroup::updateLogs(const std::string& newLogs)
     else if (newLogs[0] == '#')
     {
         cxuint textBufferIndex;
-        sscanf(newLogs.c_str()+1, "%u", &textBufferIndex);
+        if (sscanf(newLogs.c_str()+1, "%u", &textBufferIndex) != 1)
+            throw MyException("Fatal error: parse log output!");
+        if (textBufferIndex+1 >= textBuffers.size())
+            throw MyException("Fatal error: Device ID out of range in log output!");
         appendToTextBuffetWithLimit(textBuffers[textBufferIndex+1], newLogs);
     }
     else if (newLogs.compare(0, 27, "Failed StressTester for\n  #") == 0)
     {
         cxuint textBufferIndex;
-        sscanf(newLogs.c_str()+27, "%u", &textBufferIndex);
+        if (sscanf(newLogs.c_str()+27, "%u", &textBufferIndex) != 1)
+            throw MyException("Fatal error: parse log output!");
+        if (textBufferIndex+1 >= textBuffers.size())
+            throw MyException("Fatal error: Device ID out of range in log output!");
         appendToTextBuffetWithLimit(textBuffers[textBufferIndex+1], newLogs);
         
         guiapp.setTabToTestLogs();
@@ -1250,19 +1266,28 @@ void TestLogsGroup::updateLogs(const std::string& newLogs)
     else if (newLogs.compare(0, 23, "Fixed groupSize for\n  #") == 0)
     {
         cxuint textBufferIndex;
-        sscanf(newLogs.c_str()+23, "%u", &textBufferIndex);
+        if (sscanf(newLogs.c_str()+23, "%u", &textBufferIndex) != 1)
+            throw MyException("Fatal error: parse log output!");
+        if (textBufferIndex+1 >= textBuffers.size())
+            throw MyException("Fatal error: Device ID out of range in log output!");
         appendToTextBuffetWithLimit(textBuffers[textBufferIndex+1], newLogs);
     }
     else if (newLogs.compare(0, 10, "Finished #") == 0)
     {
         cxuint textBufferIndex;
-        sscanf(newLogs.c_str()+10, "%u", &textBufferIndex);
+        if (sscanf(newLogs.c_str()+10, "%u", &textBufferIndex) != 1)
+            throw MyException("Fatal error: parse log output!");
+        if (textBufferIndex+1 >= textBuffers.size())
+            throw MyException("Fatal error: Device ID out of range in log output!");
         appendToTextBuffetWithLimit(textBuffers[textBufferIndex+1], newLogs);
     }
     else if (newLogs.compare(0, 8, "Failed #") == 0)
     {
         cxuint textBufferIndex;
-        sscanf(newLogs.c_str()+8, "%u", &textBufferIndex);
+        if (sscanf(newLogs.c_str()+8, "%u", &textBufferIndex) != 1)
+            throw MyException("Fatal error: parse log output!");
+        if (textBufferIndex+1 >= textBuffers.size())
+            throw MyException("Fatal error: Device ID out of range in log output!");
         appendToTextBuffetWithLimit(textBuffers[textBufferIndex+1], newLogs);
     }
     
@@ -1285,6 +1310,25 @@ try
         : mainWin(nullptr), mainTabs(nullptr), deviceChoiceGrp(nullptr)
 {
     mainStressThread = nullptr;
+    
+    alertWin = new Fl_Window(600, 150, "GPUStress Alert!");
+    alertWin->set_modal();
+    Fl_Box* alertMessage = new Fl_Box(10, 10, 580, 100);
+    alertMessage->align(FL_ALIGN_INSIDE|FL_ALIGN_TOP_LEFT);
+    alertMessage->labelfont(FL_HELVETICA_BOLD);
+    alertMessage->labelsize(14);
+    alertMessage->labelcolor(FL_RED);
+    alertMessage->label(
+        "WARNING: THIS PROGRAM CAN OVERHEAT OR DAMAGE YOUR GRAPHICS\n"
+        "CARD FASTER (AND BETTER) THAN ANY FURMARK STRESS TEST.\n"
+        "PLEASE USE THIS PROGRAM VERY CAREFULLY!!!\n"
+        "WE RECOMMEND TO RUN THIS PROGRAM ON THE STOCK PARAMETERS\n"
+        "OF THE DEVICES (CLOCKS, VOLTAGES, ESPECIALLY MEMORY CLOCK).\n");
+    Fl_Return_Button* rbutton = new Fl_Return_Button(480, 110, 110, 30, "Dismiss");
+    rbutton->labelfont(FL_HELVETICA_BOLD);
+    rbutton->callback(&GUIApp::dismissAlertCalled, this);
+    alertWin->end();
+    
     mainWin = new Fl_Window(760, 465, "GPUStress GUI " PROGRAM_VERSION);
     mainTabs = new Fl_Tabs(0, 0, 760, 400);
     deviceChoiceGrp = new DeviceChoiceGroup(clDevices, *this);
@@ -1333,6 +1377,7 @@ bool GUIApp::run()
 {
     Fl::lock();
     mainWin->show();
+    alertWin->show();
     int ret = Fl::run();
     if (ret != 0)
     {
@@ -1522,10 +1567,18 @@ void GUIApp::runStress()
     Fl::awake(&GUIApp::stressEndAwake, this);
 }
 
+void GUIApp::dismissAlertCalled(Fl_Widget* widget, void* data)
+{
+    GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
+    guiapp->alertWin->hide();
+}
+
 void GUIApp::setTabToTestLogs()
 {
     mainTabs->value(testLogsGrp);
 }
+
+/* main program */
 
 int main(int argc, const char** argv)
 {
@@ -1581,7 +1634,7 @@ int main(int argc, const char** argv)
         return 0;
     }
     
-    if (!useGPUs && !useCPUs)
+    if (!useGPUs && !useCPUs && !useAccelerators)
         useGPUs = 1;
     if (!useAMDPlatform && !useNVIDIAPlatform && !useIntelPlatform)
         useAllPlatforms = true;

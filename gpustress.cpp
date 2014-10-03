@@ -33,7 +33,7 @@
 #include <CL/cl.hpp>
 #include "gpustress-core.h"
 
-#define PROGRAM_VERSION "0.0.5.3"
+#define PROGRAM_VERSION "0.0.8"
 
 extern const char* testDescsTable[];
 
@@ -214,7 +214,7 @@ int main(int argc, const char** argv)
         return 0;
     }
     
-    if (!useGPUs && !useCPUs)
+    if (!useGPUs && !useCPUs && !useAccelerators)
         useGPUs = 1;
     if (!useAMDPlatform && !useNVIDIAPlatform && !useIntelPlatform)
         useAllPlatforms = true;

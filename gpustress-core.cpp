@@ -131,7 +131,13 @@ std::vector<cl::Device> getChoosenCLDevices()
         if (useAccelerators)
             deviceType |= CL_DEVICE_TYPE_ACCELERATOR;
         
-        clPlatform.getDevices(deviceType, &clDevices);
+        try
+        { clPlatform.getDevices(deviceType, &clDevices); }
+        catch(const cl::Error& err)
+        {
+            if (err.err() != CL_DEVICE_NOT_FOUND)
+                throw;
+        }
         outDevices.insert(outDevices.end(), clDevices.begin(), clDevices.end());
     }
     return outDevices;
