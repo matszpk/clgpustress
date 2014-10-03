@@ -190,13 +190,13 @@ option to get that order.
 
 ### GUI documentation
 
-gpustress-gui accepts similar set of command line options likes gpustress.
+gpustress-gui accepts similar set of command line options like gpustress.
 
-GUI of the program contains three tabs. First allow to select devices whose will be tested.
+The GUI of the program contains three tabs. First allow to select devices whose will be tested.
 You may do to this by using filtering ('Choose by filtering') or by choosing devices from list
 ('Choose from list').
 
-After choosing device you can set test parameter for devices in 'Test configs' tab.
+After choosing set of a devices you can set test parameters for devices in 'Test configs' tab.
 The top choice widget (combo box) allow to choose device for which test configuration will be set.
 'Copy to all devices' copies currently choosen test configuration to
 test configuration for all devices. 'Copy to these same devices' copies configuration only for
