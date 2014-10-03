@@ -182,7 +182,7 @@ int main(int argc, const char** argv)
     std::cout << "CLGPUStress CLI " PROGRAM_VERSION " by Mateusz Szpakowski. "
         "Program is distributed under terms of the GPLv2.\n"
         "Sources available at https://github.com/matszpk/clgpustress.\n"
-        "Binaries available at http://files.nativeboinc.org/offtopic/clgpustress/"
+        "Binaries available at http://files.nativeboinc.org/offtopic/clgpustress/."
         << std::endl;
     if (printVersion)
     {

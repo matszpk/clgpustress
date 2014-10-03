@@ -522,9 +522,9 @@ void DeviceChoiceGroup::byFilterChanged(Fl_Widget* widget, void* data)
         
         if (!thisUseAllPlatforms)
         {
-            if ((thisUseIntel==0 || platformName.find("Intel") == std::string::npos) &&
-                (thisUseAMD==0 || platformName.find("AMD") == std::string::npos) &&
-                (thisUseNVIDIA==0 || platformName.find("NVIDIA") == std::string::npos))
+            if ((!thisUseIntel || platformName.find("Intel") == std::string::npos) &&
+                (!thisUseAMD || platformName.find("AMD") == std::string::npos) &&
+                (!thisUseNVIDIA || platformName.find("NVIDIA") == std::string::npos))
             {
                 entry.checkButton->value(0);
                 continue;
