@@ -135,7 +135,7 @@ std::vector<cl::Device> getChoosenCLDevices()
         { clPlatform.getDevices(deviceType, &clDevices); }
         catch(const cl::Error& err)
         {
-            if (err.err() != CL_DEVICE_NOT_FOUND)
+            if (err.err() != CL_DEVICE_NOT_FOUND && err.err() != CL_INVALID_VALUE)
                 throw;
         }
         outDevices.insert(outDevices.end(), clDevices.begin(), clDevices.end());
