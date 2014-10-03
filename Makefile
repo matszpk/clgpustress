@@ -8,8 +8,8 @@
 OPENCLDIR = /home/mat/docs/dev/opencl/OpenCL1.1
 
 LDFLAGS = -Wall
-# CXXFLAGS = -Wall -std=gnu++11 -Os -fexpensive-optimizations
-CXXFLAGS = -Wall -g -std=gnu++11
+CXXFLAGS = -Wall -std=gnu++11 -Os -fexpensive-optimizations
+# CXXFLAGS = -Wall -g -std=gnu++11
 CXX = g++
 LIBDIRS = -L$(OPENCLDIR)/lib
 INCDIRS = -I$(OPENCLDIR)/include -I`fltk-config --includedir`
