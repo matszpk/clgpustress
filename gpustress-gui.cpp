@@ -262,6 +262,8 @@ private:
     
     Fl_Tree* devicesTree;
     
+    std::vector<std::string> labels;
+    
     GUIApp& guiapp;
 public:
     DeviceChoiceGroup(const std::vector<cl::Device>& clDevices, GUIApp& guiapp);
@@ -388,7 +390,8 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
             
             std::string platformPath(numBuf);
             platformPath += escapeForFlTree(platformName);
-            devicesTree->add(::strdup(platformPath.c_str()));
+            labels.push_back(platformPath);
+            devicesTree->add(labels.back().c_str());
             
             for (cxuint j = 0; j < clDevices.size(); j++)
             {
@@ -401,13 +404,16 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
                 clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
                 devicePath += escapeForFlTree(deviceName);
                 
-                Fl_Tree_Item* item = devicesTree->add(::strdup(devicePath.c_str()));
+                labels.push_back(devicePath);
+                Fl_Tree_Item* item = devicesTree->add(labels.back().c_str());
                 devicesTree->begin();
                 
                 std::string escapedStr = escapeForFlLabel(
                                 devicePath.c_str() + platformPath.size() + 1);
+                labels.push_back(escapedStr);
                 Fl_Check_Button* checkButton = new Fl_Check_Button(0, 0, 480, 20,
-                            ::strdup(escapedStr.c_str()));
+                            labels.back().c_str());
+                
                 checkButton->callback(&DeviceChoiceGroup::changeClDeviceEnable, this);
                 if (devicesListString == nullptr)
                     checkButton->deactivate();
@@ -427,7 +433,8 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
                         " MaxGroupSize: " SIZE_T_SPEC, deviceClock,
                          cxuint(memSize>>20), maxComputeUnits,
                          maxWorkGroupSize);
-                checkButton->tooltip(::strdup(buf));
+                labels.push_back(buf);
+                checkButton->tooltip(labels.back().c_str());
                 
                 allClDevices.push_back(DeviceEntry(clDevice, checkButton));
                 devicesTree->end();
@@ -1048,8 +1055,6 @@ TestLogsGroup::TestLogsGroup(GUIApp& _guiapp)
     deviceChoice = new Fl_Choice(70, 32, 680, 20, "Device:");
     deviceChoice->tooltip("Choose device for which log messages will be displayed");
     deviceChoice->callback(&TestLogsGroup::selectedDeviceChanged, this);
-    
-    textBuffers.push_back(new Fl_Text_Buffer());
     
     logOutput = new Fl_Text_Display(10, 60, 740, 300);
     logOutput->textfont(FL_COURIER);

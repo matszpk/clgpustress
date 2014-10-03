@@ -42,7 +42,7 @@ Version with GUI is named as 'gpustress-gui'.
 - OpenCL support
 - cl.hpp (OpenCL C++ support)
 - compiler with C++11 support
-- Linux (currently this system is supported).
+- FLTK 1.3 for GUI version
 
 ### Building program
 
