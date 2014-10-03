@@ -12,7 +12,7 @@ CXXFLAGS = -Wall -std=gnu++11 -O2 -fexpensive-optimizations
 # CXXFLAGS = -Wall -g -std=gnu++11
 CXX = g++
 LIBDIRS = -L$(OPENCLDIR)/lib
-INCDIRS = -I$(OPENCLDIR)/include
+INCDIRS = -I$(OPENCLDIR)/include -I`fltk-config --includedir`
 LIBS = -lm -pthread -lpopt -lOpenCL
 GUILIBS = `fltk-config --ldstaticflags` 
 

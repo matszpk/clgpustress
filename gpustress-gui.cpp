@@ -74,7 +74,6 @@ static const char* workFactorsString = nullptr;
 static const char* blocksNumsString = nullptr;
 static const char* passItersNumsString = nullptr;
 static const char* kitersNumsString = nullptr;
-static int dontWait = 0;
 static int printHelp = 0;
 static int printUsage = 0;
 static int printVersion = 0;
@@ -105,7 +104,6 @@ static const poptOption optionsTable[] =
         "Set pass iterations num", "ITERSLIST" },
     { "kitersNum", 'j', POPT_ARG_STRING, &kitersNumsString, 'j',
         "Set kernel iterations number (range 1-100)", "ITERSLIST" },
-    { "dontWait", 'w', POPT_ARG_VAL, &dontWait, 'w', "Dont wait few seconds", nullptr },
     { "exitIfAllFails", 'f', POPT_ARG_VAL, &exitIfAllFails, 'f',
         "Exit only if all devices fails at computation", nullptr },
     { "version", 'V', POPT_ARG_VAL, &printVersion, 'V', "Print program version", nullptr },
@@ -175,6 +173,7 @@ private:
     DeviceChoiceGroup* deviceChoiceGrp;
     TestConfigsGroup* testConfigsGrp;
     TestLogsGroup* testLogsGrp;
+    Fl_Group* aboutGrp;
     
     Fl_Check_Button* exitAllFailsButton;
     Fl_Button* startStopButton;
@@ -586,36 +585,36 @@ SingleTestConfigGroup::SingleTestConfigGroup(const cl::Device& clDevice,
         const GPUStressConfig* config) : Fl_Group(10, 60, 740, 300)
 {
     box(FL_THIN_UP_FRAME);
-    Fl_Group* group = new Fl_Group(20, 60, 720, 220);
-    deviceInfoBox =new Fl_Box(20, 60, 720, 20, "Required memory: MB");
+    Fl_Group* group = new Fl_Group(20, 70, 720, 220);
+    deviceInfoBox =new Fl_Box(20, 70, 720, 20, "Required memory: MB");
     deviceInfoBox->align(FL_ALIGN_INSIDE|FL_ALIGN_LEFT);
-    memoryReqsBox =new Fl_Box(20, 80, 720, 20, "Required memory: MB");
+    memoryReqsBox =new Fl_Box(20, 90, 720, 20, "Required memory: MB");
     memoryReqsBox->align(FL_ALIGN_INSIDE|FL_ALIGN_LEFT);
-    passItersSpinner = new Fl_Spinner(150, 107, 150, 20, "Pass iterations");
+    passItersSpinner = new Fl_Spinner(150, 127, 150, 20, "Pass iterations");
     passItersSpinner->tooltip("Set number of kernel execution per single pass");
     passItersSpinner->range(1., INT32_MAX);
     passItersSpinner->step(1.0);
-    groupSizeSpinner = new Fl_Spinner(150, 132, 150, 20, "Group size");
+    groupSizeSpinner = new Fl_Spinner(150, 152, 150, 20, "Group size");
     groupSizeSpinner->tooltip("Set the OpenCL work group size");
     groupSizeSpinner->range(0., INT32_MAX);
     groupSizeSpinner->step(1.0);
-    workFactorSpinner = new Fl_Spinner(150, 157, 150, 20, "Work factor");
+    workFactorSpinner = new Fl_Spinner(150, 177, 150, 20, "Work factor");
     workFactorSpinner->tooltip("Set work factor (multiplies work size)");
     workFactorSpinner->range(1., INT32_MAX);
     workFactorSpinner->step(1.0);
-    blocksNumSpinner = new Fl_Spinner(150, 182, 150, 20, "Blocks number");
+    blocksNumSpinner = new Fl_Spinner(150, 202, 150, 20, "Blocks number");
     blocksNumSpinner->tooltip("Set number of blocks loaded/stored in kernel execution");
     blocksNumSpinner->range(1., 16);
     blocksNumSpinner->step(1.0);
-    kitersNumSpinner = new Fl_Spinner(150, 207, 150, 20, "Kernel iterations");
+    kitersNumSpinner = new Fl_Spinner(150, 227, 150, 20, "Kernel iterations");
     kitersNumSpinner->tooltip("Set number of operations between load and store");
     kitersNumSpinner->range(0., 100);
     kitersNumSpinner->step(1.0);
-    builtinKernelChoice = new Fl_Choice(150, 232, 340, 20, "T&est type");
+    builtinKernelChoice = new Fl_Choice(150, 252, 340, 20, "T&est type");
     builtinKernelChoice->tooltip("Set test type (builtin kernel)");
     for (const std::string& s: testTypeLabelsTable)
         builtinKernelChoice->add(s.c_str());
-    inputAndOutputButton = new Fl_Check_Button(130, 257, 200, 25, "&Input and output");
+    inputAndOutputButton = new Fl_Check_Button(130, 277, 200, 25, "&Input and output");
     inputAndOutputButton->tooltip("Enable an using separate input buffer and output buffer");
     group->end();
     
@@ -1311,13 +1310,12 @@ try
 {
     mainStressThread = nullptr;
     
-    alertWin = new Fl_Window(600, 150, "GPUStress Alert!");
+    alertWin = new Fl_Window(600, 150, "GPUStress Caution!");
     alertWin->set_modal();
     Fl_Box* alertMessage = new Fl_Box(10, 10, 580, 100);
     alertMessage->align(FL_ALIGN_INSIDE|FL_ALIGN_TOP_LEFT);
     alertMessage->labelfont(FL_HELVETICA_BOLD);
     alertMessage->labelsize(14);
-    alertMessage->labelcolor(FL_RED);
     alertMessage->label(
         "WARNING: THIS PROGRAM CAN OVERHEAT OR DAMAGE YOUR GRAPHICS\n"
         "CARD FASTER (AND BETTER) THAN ANY FURMARK STRESS TEST.\n"
@@ -1334,6 +1332,16 @@ try
     deviceChoiceGrp = new DeviceChoiceGroup(clDevices, *this);
     testConfigsGrp = new TestConfigsGroup(clDevices, configs, *this);
     testLogsGrp = new TestLogsGroup(*this);
+    
+    aboutGrp = new Fl_Group(0, 20, 760, 380, "About");
+    Fl_Box* aboutText = new Fl_Box(10, 10, 740, 360);
+    aboutText->label("CLGPUStress GUI " PROGRAM_VERSION " by Mateusz Szpakowski.\n"
+        "Program is distributed under terms of the GPLv2.\n"
+        "\n"
+        "Sources available at https://github.com/matszpk/clgpustress.\n"
+        "Binaries available at http://files.nativeboinc.org/offtopic/clgpustress.");
+    aboutGrp->end();
+    
     mainTabs->resizable(deviceChoiceGrp);
     mainTabs->end();
     exitAllFailsButton = new Fl_Check_Button(0, 400, 760, 25,
@@ -1606,7 +1614,7 @@ int main(int argc, const char** argv)
         return 1;
     }
     
-    std::cout << "CLGPUStress " PROGRAM_VERSION " by Mateusz Szpakowski. "
+    std::cout << "CLGPUStress GUI " PROGRAM_VERSION " by Mateusz Szpakowski. "
         "Program is distributed under terms of the GPLv2." << std::endl;
     if (printVersion)
     {
