@@ -1,7 +1,7 @@
 clgpustress
 ===========
 
-Heavy OpenCL GPU stress tester (version 0.0.5.3)
+Heavy OpenCL GPU stress tester (version 0.0.8)
 
 ### IMPORTANT CAUTION!!!!!
 
@@ -31,6 +31,10 @@ bandwidth. While running tests program checks result with previously computed re
 If results mismatches program terminates stress test for failed device.
 By default program terminates stress testing when any device fails. You can add
 '-f' or '--exitIfAllFails' option to force continue stress testing for other devices.
+
+### GUI version
+
+Version with GUI is named as 'gpustress-gui'.
 
 ### Software requirements:
 
@@ -183,3 +187,26 @@ last provided value from list will be choosen for remaining devices.
 
 For a determining the order of the choosen devices, you can use '-c' or '--choosenDevices'
 option to get that order.
+
+### GUI documentation
+
+gpustress-gui accepts similar set of command line options likes gpustress.
+
+GUI of the program contains three tabs. First allow to select devices whose will be tested.
+You may do to this by using filtering ('Choose by filtering') or by choosing devices from list
+('Choose from list').
+
+After choosing device you can set test parameter for devices in 'Test configs' tab.
+The top choice widget (combo box) allow to choose device for which test configuration will be set.
+'Copy to all devices' copies currently choosen test configuration to
+test configuration for all devices. 'Copy to these same devices' copies configuration only for
+devices that have this same name and belongs to this same platform.
+
+'Test logs' tab displays test logs for running stress test.
+The top choice widget (combobox) allow to choose device for which a test log will be displayed.
+You can save choosen log to file with using 'Save log' option or clear log with using
+'Clear log' option.
+'START' button runs stress test. If any failure will be happened program will display
+alert message box and will choose the test log for failed device.
+
+Option 'Exits only when all tests failed' causes exiting only when all devices fails. 
