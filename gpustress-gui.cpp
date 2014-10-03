@@ -560,8 +560,8 @@ class SingleTestConfigGroup: public Fl_Group
 {
 private:
     cl::Device clDevice;
-    char memoryReqsBuffer[64];
-    char deviceInfoBuffer[96];
+    char memoryReqsBuffer[128];
+    char deviceInfoBuffer[160];
     Fl_Box* deviceInfoBox;
     Fl_Box* memoryReqsBox;
     Fl_Spinner* passItersSpinner;
@@ -678,7 +678,7 @@ void SingleTestConfigGroup::setConfig(const cl::Device& _clDevice,
     clDevice.getInfo(CL_DEVICE_MAX_COMPUTE_UNITS, &maxComputeUnits);
     clDevice.getInfo(CL_DEVICE_MAX_WORK_GROUP_SIZE, &maxWorkGroupSize);
     
-    snprintf(deviceInfoBuffer, 96, "Clock: %u MHz, Memory: %u MB, CompUnits: %u,"
+    snprintf(deviceInfoBuffer, 160, "Clock: %u MHz, Memory: %u MB, CompUnits: %u,"
             " MaxGroupSize: " SIZE_T_SPEC, deviceClock, cxuint(memSize>>20),
              maxComputeUnits, maxWorkGroupSize);
     deviceInfoBox->label(deviceInfoBuffer);
