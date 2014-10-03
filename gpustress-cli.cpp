@@ -161,7 +161,7 @@ int main(int argc, const char** argv)
     
     installOutputHandler(&std::cout, &std::cerr);
     
-    optsContext = poptGetContext("gpustress", argc, argv, optionsTable, 0);
+    optsContext = poptGetContext("gpustress-cli", argc, argv, optionsTable, 0);
     
     bool globalInputAndOutput = false;
     /* parse options */

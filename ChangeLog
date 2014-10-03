@@ -1,5 +1,11 @@
 List of the changes:
 
+Version 0.0.8 (03.10.2014):
+- added GUI version
+- fixed device selection for CLI and GUI
+- improved program messages
+- added device informations
+
 Version 0.0.5.3 (23.09.2014):
 - prints always when error happened
 - calibration kernel progress
