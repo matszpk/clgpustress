@@ -159,12 +159,6 @@ public:
     GPUStressTester(cxuint id, cl::Device& clDevice, const GPUStressConfig& config);
     ~GPUStressTester();
     
-    // non-copyable and non-movable
-    GPUStressTester(const GPUStressTester& g) = delete;
-    GPUStressTester(GPUStressTester&& g) = delete;
-    GPUStressTester& operator=(const GPUStressTester& g) = delete;
-    GPUStressTester& operator=(GPUStressTester&& g) = delete;
-    
     void runTest();
     
     bool isInitialized() const
