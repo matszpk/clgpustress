@@ -1,24 +1,32 @@
 CXX = cl
 CXXFLAGS = /O2
+GUIFLAGS = /fp:precise /D "_CRT_SECURE_NO_DEPRECATE" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" \
+	/D "WIN32_LEAN_AND_MEAN" /D "VC_EXTRA_LEAN" /D "WIN32_EXTRA_LEAN" /D "_VC80_UPGRADE=0x0710"
 LDFLAGS = /O2
 
-all: gpustress.exe
+all: gpustress-cli.exe gpustress-gui.exe
 
-INCDIRS = /I..\popt-1.16\ /I..\OpenCL1.1\include /I..\FLTK1.3\include
-POPTLIB = ..\popt-1.16\popt.lib
+INCDIRS = /I..\popt-1.16-64\ /I..\OpenCL1.1\include /I..\fltk-1.3.x-r10088-64
+# INCDIRS = /I..\popt-1.16-32\ /I..\OpenCL1.1\include /I..\fltk-1.3.x-r10088
+POPTLIB = ..\popt-1.16-64\popt.lib
 # POPTLIB = ..\popt-1.16-32\popt.lib
 OPENCLLIB = ..\OpenCL1.1\lib64\OpenCL.lib
 # OPENCLLIB = ..\OpenCL1.1\lib32\OpenCL.lib
-GUILIB = ..\FLTK1.3\lib\fltk.lib
+GUILIB = ..\fltk-1.3.x-r10088-64\lib\fltk.lib
+# GUILIB = ..\fltk-1.3.x-r10088\lib\fltk.lib
+GUILDFLAGS = "comctl32.lib" "kernel32.lib" "user32.lib" \
+	"gdi32.lib" "winspool.lib" "comdlg32.lib" "advapi32.lib" "shell32.lib" "ole32.lib" \
+	"oleaut32.lib" "uuid.lib" "odbc32.lib" "odbccp32.lib" \
+	$(GUILIB) /link /SUBSYSTEM:WINDOWS
 
 gpustress-cli.exe: gpustress-cli.obj gpustress-core.obj clkernels.obj
 	$(CXX) $(LDFLAGS) $(CXXFLAGS) $** $(POPTLIB) $(OPENCLLIB)
 
 gpustress-gui.exe: gpustress-gui.obj gpustress-core.obj clkernels.obj
-	$(CXX) $(LDFLAGS) $(CXXFLAGS) $** $(POPTLIB) $(OPENCLLIB) ${GUILIB}
+	$(CXX) $(LDFLAGS) $(CXXFLAGS) $** $(POPTLIB) $(OPENCLLIB) $(GUILDFLAGS) 
 
 .cpp.obj:
-	$(CXX) $(CXXFLAGS) $(INCDIRS) /c $<
+	$(CXX) $(CXXFLAGS) $(GUIFLAGS) $(INCDIRS) /c $<
 
 gpustress-cli.obj: gpustress-cli.cpp gpustress-core.h
 gpustress-core.obj: gpustress-core.cpp gpustress-core.h
