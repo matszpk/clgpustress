@@ -202,12 +202,7 @@ public:
     GUIApp(const std::vector<cl::Device>& clDevices,
            const std::vector<GPUStressConfig>& configs);
     ~GUIApp();
-    
-    GUIApp(const GUIApp& g) = delete;
-    GUIApp(GUIApp&& g) = delete;
-    GUIApp& operator=(const GUIApp& g) = delete;
-    GUIApp& operator=(GUIApp&& g) = delete;
-    
+        
     bool run();
     
     void updateGlobal();
