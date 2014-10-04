@@ -1292,7 +1292,7 @@ void TestLogsGroup::choiceTestLog(cxuint index)
 GUIApp::GUIApp(const std::vector<cl::Device>& clDevices,
            const std::vector<GPUStressConfig>& configs)
 try
-        : mainWin(nullptr), mainTabs(nullptr), deviceChoiceGrp(nullptr)
+        : mainWin(nullptr)
 {
     mainStressThread = nullptr;
     
@@ -1443,7 +1443,6 @@ void GUIApp::startStopCalled(Fl_Widget* widget, void* data)
         guiapp->exitAllFailsButton->deactivate();
         guiapp->testLogsGrp->updateDeviceList();
         guiapp->mainTabs->value(guiapp->testLogsGrp);
-        guiapp->mainTabs->redraw();
         
         guiapp->mainStressThread = new std::thread(&GUIApp::runStress, guiapp);
     }
