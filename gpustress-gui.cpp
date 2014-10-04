@@ -30,6 +30,7 @@
 #include <set>
 #include <map>
 #include <cstring>
+#include <cstdlib>
 #include <climits>
 #include <vector>
 #include <thread>
@@ -257,11 +258,12 @@ private:
     
     Fl_Tree* devicesTree;
     
-    std::vector<std::string> labels;
+    std::vector<char*> labels;
     
     GUIApp& guiapp;
 public:
     DeviceChoiceGroup(const std::vector<cl::Device>& clDevices, GUIApp& guiapp);
+    ~DeviceChoiceGroup();
     
     size_t getClDevicesNum() const
     { return allClDevices.size(); }
@@ -385,8 +387,8 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
             
             std::string platformPath(numBuf);
             platformPath += escapeForFlTree(platformName);
-            labels.push_back(platformPath);
-            devicesTree->add(labels.back().c_str());
+            labels.push_back(::strdup(platformPath.c_str()));
+            devicesTree->add(labels.back());
             
             for (cxuint j = 0; j < clDevices.size(); j++)
             {
@@ -399,16 +401,16 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
                 clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
                 devicePath += escapeForFlTree(deviceName);
                 
-                labels.push_back(devicePath);
-                Fl_Tree_Item* item = devicesTree->add(labels.back().c_str());
+                labels.push_back(::strdup(devicePath.c_str()));
+                Fl_Tree_Item* item = devicesTree->add(labels.back());
                 devicesTree->begin();
                 
                 std::string deviceLabel(numBuf);
                 deviceLabel += deviceName;
                 std::string escapedStr = escapeForFlLabel(deviceLabel);
-                labels.push_back(escapedStr);
+                labels.push_back(::strdup(escapedStr.c_str()));
                 Fl_Check_Button* checkButton = new Fl_Check_Button(0, 0, 480, 20,
-                            labels.back().c_str());
+                            labels.back());
                 
                 checkButton->callback(&DeviceChoiceGroup::changeClDeviceEnable, this);
                 if (devicesListString == nullptr)
@@ -429,8 +431,8 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
                         " MaxGroupSize: " SIZE_T_SPEC, deviceClock,
                         cxuint(memSize>>20), maxComputeUnits,
                         maxWorkGroupSize);
-                labels.push_back(buf);
-                checkButton->tooltip(labels.back().c_str());
+                labels.push_back(::strdup(buf));
+                checkButton->tooltip(labels.back());
                 
                 allClDevices.push_back(DeviceEntry(clDevice, checkButton));
                 devicesTree->end();
@@ -457,6 +459,12 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
     else
         byFilterChanged(useAllPlatformsButton, this);
     guiapp.updateGlobal();
+}
+
+DeviceChoiceGroup::~DeviceChoiceGroup()
+{
+    for (char* s: labels)
+        ::free(s);
 }
 
 void DeviceChoiceGroup::choiceTypeIsSet(Fl_Widget* widget, void* data)
@@ -723,7 +731,7 @@ private:
     Fl_Choice* deviceChoice;
     SingleTestConfigGroup* singleConfigGroup;
     
-    std::vector<std::string> choiceLabels;
+    std::vector<char*> choiceLabels;
     Fl_Button* toAllDevicesButton;
     Fl_Button* toTheseSameDevsButton;
     
@@ -739,6 +747,7 @@ private:
 public:
     TestConfigsGroup(const std::vector<cl::Device>& clDevices,
             const std::vector<GPUStressConfig>& configs, GUIApp& _guiapp);
+    ~TestConfigsGroup();
     
     void updateDeviceList();
     
@@ -781,9 +790,10 @@ TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
             label += platformName;
             label += ":";
             label += deviceName;
+            label = escapeForFlMenu(label);
             
-            choiceLabels.push_back(escapeForFlMenu(label));
-            deviceChoice->add(choiceLabels.back().c_str());
+            choiceLabels.push_back(::strdup(label.c_str()));
+            deviceChoice->add(choiceLabels.back());
             
             if (curClDeviceID == nullptr)
                 curClDeviceID = clDevice();
@@ -820,6 +830,12 @@ TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
     viewGroup->resizable(singleConfigGroup);
     viewGroup->end();
     end();
+}
+
+TestConfigsGroup::~TestConfigsGroup()
+{
+    for (char* s: choiceLabels)
+        ::free(s);
 }
 
 void TestConfigsGroup::selectedDeviceChanged(Fl_Widget* widget, void* data)
@@ -947,6 +963,8 @@ void TestConfigsGroup::updateDeviceList()
     curClDeviceID = nullptr;
     
     deviceChoice->clear();
+    for (char* s: choiceLabels)
+        ::free(s);
     choiceLabels.clear();
     
     size_t choiceIndex = 0;
@@ -971,9 +989,10 @@ void TestConfigsGroup::updateDeviceList()
             label += platformName;
             label += ":";
             label += deviceName;
+            label = escapeForFlMenu(label);
             
-            choiceLabels.push_back(escapeForFlMenu(label));
-            deviceChoice->add(choiceLabels.back().c_str());
+            choiceLabels.push_back(::strdup(label.c_str()));
+            deviceChoice->add(choiceLabels.back());
             
             if (curClDeviceID == nullptr)
                 curClDeviceID = clDevice();
@@ -1038,7 +1057,7 @@ private:
     Fl_Button* saveLogButton;
     Fl_Button* clearLogButton;
     
-    std::vector<std::string> choiceLabels;
+    std::vector<char*> choiceLabels;
     
     static void selectedDeviceChanged(Fl_Widget* widget, void* data);
     static void saveLogCalled(Fl_Widget* widget, void* data);
@@ -1049,6 +1068,7 @@ private:
     GUIApp& guiapp;
 public:
     TestLogsGroup(GUIApp& _guiapp);
+    ~TestLogsGroup();
     
     void updateDeviceList();
     void updateLogs(const std::string& newLogs);
@@ -1085,6 +1105,12 @@ TestLogsGroup::TestLogsGroup(GUIApp& _guiapp)
     clearLogButton->deactivate();
     logOutput->deactivate();
     end();
+}
+
+TestLogsGroup::~TestLogsGroup()
+{
+    for (char* s: choiceLabels)
+        ::free(s);
 }
 
 void TestLogsGroup::selectedDeviceChanged(Fl_Widget* widget, void* data)
@@ -1136,6 +1162,11 @@ void TestLogsGroup::updateDeviceList()
     logOutput->buffer(nullptr);
     for (Fl_Text_Buffer* tbuf: textBuffers)
         delete tbuf;
+    
+    for (char* s: choiceLabels)
+        ::free(s);
+    choiceLabels.clear();
+    
     textBuffers.clear();
     deviceChoice->clear();
     
@@ -1162,9 +1193,10 @@ void TestLogsGroup::updateDeviceList()
                 label += platformName;
                 label += ":";
                 label += deviceName;
-                
-                choiceLabels.push_back(escapeForFlMenu(label));
-                deviceChoice->add(choiceLabels.back().c_str());
+                label = escapeForFlMenu(label);
+            
+                choiceLabels.push_back(::strdup(label.c_str()));
+                deviceChoice->add(choiceLabels.back());
                 textBuffers.push_back(new Fl_Text_Buffer());
             }
         
@@ -1282,7 +1314,7 @@ void TestLogsGroup::updateLogs(const std::string& newLogs)
         guiapp.setTabToTestLogs();
         choiceTestLog(textBufferIndex+1);
         fl_alert("Failed test for #%u: %s!", textBufferIndex+1,
-                 choiceLabels[textBufferIndex].c_str());
+                 choiceLabels[textBufferIndex]);
     }
     else if (newLogs.compare(0, 23, "Fixed groupSize for\n  #") == 0)
     {
