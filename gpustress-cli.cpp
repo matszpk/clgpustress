@@ -84,7 +84,7 @@ static const poptOption optionsTable[] =
         "Set kernel iterations number (range 1-100)", "ITERSLIST" },
     { "dontWait", 'w', POPT_ARG_VAL, &dontWait, 'w', "Dont wait few seconds", nullptr },
     { "exitIfAllFails", 'f', POPT_ARG_VAL, &exitIfAllFails, 'f',
-        "Exit only if all devices fails at computation", nullptr },
+        "Exit only when all devices will fail at computation", nullptr },
     { "version", 'V', POPT_ARG_VAL, &printVersion, 'V', "Print program version", nullptr },
     { "help", '?', POPT_ARG_VAL, &printHelp, '?', "Show this help message", nullptr },
     { "usage", 0, POPT_ARG_VAL, &printUsage, 'u', "Display brief usage message", nullptr },
@@ -281,7 +281,7 @@ int main(int argc, const char** argv)
             "TO TERMINATE THIS PROGRAM PLEASE USE STANDARD 'CTRL-C' KEY COMBINATION.\n"
             << std::endl;
         if (exitIfAllFails && choosenCLDevices.size() > 1)
-            std::cout << "PROGRAM EXITS ONLY WHEN ALL DEVICES FAILS.\n"
+            std::cout << "PROGRAM EXITS ONLY WHEN ALL DEVICES WILL FAIL.\n"
                 "PLEASE TRACE OUTPUT TO FIND FAILED DEVICE AND REACT!\n" << std::endl;
         if (dontWait==0)
             std::this_thread::sleep_for(std::chrono::milliseconds(8000));

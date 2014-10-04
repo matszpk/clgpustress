@@ -29,7 +29,7 @@ Also you can select OpenCL platform by using '-A', '-N' or '-E' options
 By default program calibrates test for performance and memory
 bandwidth. While running tests program checks result with previously computed results on the device.
 If results mismatches program terminates stress test for failed device.
-By default program terminates stress testing when any device fails. You can add
+By default program terminates stress testing when any device will fail. You can add
 '-f' or '--exitIfAllFails' option to force continue stress testing for other devices.
 
 ### Program version
@@ -210,4 +210,5 @@ You can save choosen log to file with using 'Save log' option or clear log with 
 'START' button runs stress test. If any failure will be happened program will display
 alert message box and will choose the test log for failed device.
 
-Option 'Exits only when all tests failed' causes exiting only when all devices fails. 
+Option 'Stop test only when all device will fail'
+causes stop test only when all devices will fail. 

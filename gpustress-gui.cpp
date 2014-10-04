@@ -109,7 +109,7 @@ static const poptOption optionsTable[] =
     { "kitersNum", 'j', POPT_ARG_STRING, &kitersNumsString, 'j',
         "Set kernel iterations number (range 1-100)", "ITERSLIST" },
     { "exitIfAllFails", 'f', POPT_ARG_VAL, &exitIfAllFails, 'f',
-        "Exit only if all devices fails at computation", nullptr },
+        "Exit only when all devices will fail at computation", nullptr },
     { "version", 'V', POPT_ARG_VAL, &printVersion, 'V', "Print program version", nullptr },
     { "help", '?', POPT_ARG_VAL, &printHelp, '?', "Show this help message", nullptr },
     { "usage", 0, POPT_ARG_VAL, &printUsage, 'u', "Display brief usage message", nullptr },
@@ -1345,7 +1345,7 @@ try
     mainTabs->resizable(deviceChoiceGrp);
     mainTabs->end();
     exitAllFailsButton = new Fl_Check_Button(0, 400, 760, 25,
-        "Stops stress testing only when all tests failed");
+        "Stop stress testing only when all devices will fail");
     exitAllFailsButton->value(exitIfAllFails?1:0);
     
     startStopButton = new Fl_Button(0, 425, 760, 40, "START");
