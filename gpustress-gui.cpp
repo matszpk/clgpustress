@@ -778,7 +778,9 @@ TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
             char buf[32];
             snprintf(buf, 32, SIZE_T_SPEC ": ", i);
             std::string label(buf);
-            label += platformName + ":" + deviceName;
+            label += platformName;
+            label += ":";
+            label += deviceName;
             
             choiceLabels.push_back(escapeForFlMenu(label));
             deviceChoice->add(choiceLabels.back().c_str());
@@ -966,7 +968,9 @@ void TestConfigsGroup::updateDeviceList()
             char buf[32];
             snprintf(buf, 32, SIZE_T_SPEC ": ", i);
             std::string label(buf);
-            label += platformName + ":" + deviceName;
+            label += platformName;
+            label += ":";
+            label += deviceName;
             
             choiceLabels.push_back(escapeForFlMenu(label));
             deviceChoice->add(choiceLabels.back().c_str());
@@ -1155,7 +1159,10 @@ void TestLogsGroup::updateDeviceList()
                 char buf[32];
                 snprintf(buf, 32, SIZE_T_SPEC ": ", i);
                 std::string label(buf);
-                label += platformName + ":" + deviceName;
+                label += platformName;
+                label += ":";
+                label += deviceName;
+                
                 choiceLabels.push_back(escapeForFlMenu(label));
                 deviceChoice->add(choiceLabels.back().c_str());
                 textBuffers.push_back(new Fl_Text_Buffer());
