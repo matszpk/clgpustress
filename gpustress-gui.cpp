@@ -1679,8 +1679,16 @@ int main(int argc, const char** argv)
     
     if (cmd < -1)
     {
+#ifdef _WINDOWS
+        std::ostringstream oss;
+        oss << poptBadOption(optsContext, POPT_BADOPTION_NOALIAS) << ": " <<
+            poptStrerror(cmd) << std::endl;
+        std::string ossStr = oss.str();
+        MessageBox(0, ossStr.c_str(), "Error", MB_ICONERROR);
+#else
         std::cerr << poptBadOption(optsContext, POPT_BADOPTION_NOALIAS) << ": " <<
             poptStrerror(cmd) << std::endl;
+#endif
         poptFreeContext(optsContext);
         return 1;
     }
