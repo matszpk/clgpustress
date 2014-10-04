@@ -773,6 +773,7 @@ TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
     deviceChoice = new Fl_Choice(70, 32, 680, 20, "Device:");
     deviceChoice->tooltip("Choose device for which test will be configured");
     
+    size_t j = 0;
     for (size_t i = 0; i < devChoiceGroup->getClDevicesNum(); i++)
         if (devChoiceGroup->isClDeviceEnabled(i))
         {
@@ -785,7 +786,7 @@ TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
             clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
             
             char buf[32];
-            snprintf(buf, 32, SIZE_T_SPEC ": ", i);
+            snprintf(buf, 32, SIZE_T_SPEC ": ", j++);
             std::string label(buf);
             label += platformName;
             label += ":";
@@ -972,6 +973,7 @@ void TestConfigsGroup::updateDeviceList()
         if (devChoiceGroup->isClDeviceEnabled(i))
             choosenClDeviceIDs.push_back(devChoiceGroup->getClDevice(i)());
     
+    size_t j = 0;
     for (size_t i = 0; i < devChoiceGroup->getClDevicesNum(); i++)
         if (devChoiceGroup->isClDeviceEnabled(i))
         {
@@ -984,7 +986,7 @@ void TestConfigsGroup::updateDeviceList()
             clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
             
             char buf[32];
-            snprintf(buf, 32, SIZE_T_SPEC ": ", i);
+            snprintf(buf, 32, SIZE_T_SPEC ": ", j++);
             std::string label(buf);
             label += platformName;
             label += ":";
@@ -1176,6 +1178,7 @@ void TestLogsGroup::updateDeviceList()
         deviceChoice->add("All devices");
         textBuffers.push_back(new Fl_Text_Buffer());
         
+        size_t j = 0;
         for (size_t i = 0; i < devChoiceGroup->getClDevicesNum(); i++)
             if (devChoiceGroup->isClDeviceEnabled(i))
             {
@@ -1188,7 +1191,7 @@ void TestLogsGroup::updateDeviceList()
                 clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
                 
                 char buf[32];
-                snprintf(buf, 32, SIZE_T_SPEC ": ", i);
+                snprintf(buf, 32, SIZE_T_SPEC ": ", j++);
                 std::string label(buf);
                 label += platformName;
                 label += ":";
