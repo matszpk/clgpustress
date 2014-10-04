@@ -1,5 +1,9 @@
 List of the changes:
 
+Version 0.0.8.1 (03.10.2014):
+- fixed for broken labels
+- fixed device choice list (display all devices even if names are dupliclated)
+
 Version 0.0.8 (03.10.2014):
 - added GUI version
 - fixed device selection for CLI and GUI
