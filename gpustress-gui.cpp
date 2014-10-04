@@ -421,20 +421,25 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
                     checkButton->deactivate();
                 item->widget(checkButton);
                 
+                cl_device_type deviceType;
                 cl_uint deviceClock;
                 cl_ulong memSize;
                 cl_uint maxComputeUnits;
                 size_t maxWorkGroupSize;
+                clDevice.getInfo(CL_DEVICE_TYPE, &deviceType);
                 clDevice.getInfo(CL_DEVICE_MAX_CLOCK_FREQUENCY, &deviceClock);
                 clDevice.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &memSize);
                 clDevice.getInfo(CL_DEVICE_MAX_COMPUTE_UNITS, &maxComputeUnits);
                 clDevice.getInfo(CL_DEVICE_MAX_WORK_GROUP_SIZE, &maxWorkGroupSize);
                 
                 char buf[128];
-                snprintf(buf, 128, "Clock: %u MHz, Memory: %u MB, CompUnits: %u,"
-                        " MaxGroupSize: " SIZE_T_SPEC, deviceClock,
-                        cxuint(memSize>>20), maxComputeUnits,
-                        maxWorkGroupSize);
+                snprintf(buf, 128, "Type:%s%s%s, Clock: %u MHz, Memory: %u MB, CompUnits: %u,"
+                        " MaxGroupSize: " SIZE_T_SPEC,
+                         (deviceType&CL_DEVICE_TYPE_CPU)!=0?" CPU":"",
+                         (deviceType&CL_DEVICE_TYPE_GPU)!=0?" GPU":"",
+                         (deviceType&CL_DEVICE_TYPE_ACCELERATOR)!=0?" ACC":"",
+                         deviceClock, cxuint(memSize>>20), maxComputeUnits,
+                         maxWorkGroupSize);
                 labels.push_back(::strdup(buf));
                 checkButton->tooltip(labels.back());
                 
@@ -683,17 +688,24 @@ void SingleTestConfigGroup::setConfig(const cl::Device& _clDevice,
 {
     this->clDevice = _clDevice;
     
+    cl_device_type deviceType;
     cl_uint deviceClock;
     cl_ulong memSize;
     cl_uint maxComputeUnits;
     size_t maxWorkGroupSize;
+    clDevice.getInfo(CL_DEVICE_TYPE, &deviceType);
     clDevice.getInfo(CL_DEVICE_MAX_CLOCK_FREQUENCY, &deviceClock);
     clDevice.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &memSize);
     clDevice.getInfo(CL_DEVICE_MAX_COMPUTE_UNITS, &maxComputeUnits);
     clDevice.getInfo(CL_DEVICE_MAX_WORK_GROUP_SIZE, &maxWorkGroupSize);
     
-    snprintf(deviceInfoBuffer, 160, "Clock: %u MHz, Memory: %u MB, CompUnits: %u,"
-            " MaxGroupSize: " SIZE_T_SPEC, deviceClock, cxuint(memSize>>20),
+    snprintf(deviceInfoBuffer, 160,
+             "Type:%s%s%s, Clock: %u MHz, Memory: %u MB, CompUnits: %u,"
+             " MaxGroupSize: " SIZE_T_SPEC,
+             (deviceType&CL_DEVICE_TYPE_CPU)!=0?" CPU":"",
+             (deviceType&CL_DEVICE_TYPE_GPU)!=0?" GPU":"",
+             (deviceType&CL_DEVICE_TYPE_ACCELERATOR)!=0?" ACC":"",
+             deviceClock, cxuint(memSize>>20),
              maxComputeUnits, maxWorkGroupSize);
     deviceInfoBox->label(deviceInfoBuffer);
     

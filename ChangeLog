@@ -5,6 +5,7 @@ Version 0.0.8.2 (05.10.2014):
 - added support for Windows GUI (error handling)
 - added support for Windows Console for GUI version
 - fixed device selection for CLI and GUI version
+- added device type to device info
 
 Version 0.0.8.1 (04.10.2014):
 - fixes for broken labels

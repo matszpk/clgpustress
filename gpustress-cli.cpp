@@ -97,12 +97,17 @@ static void printCLDeviceInfo(const cl::Device& clDevice)
     cl_ulong memSize;
     cl_uint maxComputeUnits;
     size_t maxWorkGroupSize;
+    cl_device_type deviceType;
+    clDevice.getInfo(CL_DEVICE_TYPE, &deviceType);
     clDevice.getInfo(CL_DEVICE_MAX_CLOCK_FREQUENCY, &deviceClock);
     clDevice.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &memSize);
     clDevice.getInfo(CL_DEVICE_MAX_COMPUTE_UNITS, &maxComputeUnits);
     clDevice.getInfo(CL_DEVICE_MAX_WORK_GROUP_SIZE, &maxWorkGroupSize);
     
-    std::cout << "  Clock: " << deviceClock << " MHz, Memory: " <<
+    std::cout << "  Type:" << ((deviceType & CL_DEVICE_TYPE_CPU)!=0?" CPU":"") <<
+            ((deviceType & CL_DEVICE_TYPE_GPU)!=0?" GPU":"") <<
+            ((deviceType & CL_DEVICE_TYPE_ACCELERATOR)!=0?" ACC":"") <<
+            ", Clock: " << deviceClock << " MHz, Memory: " <<
             (memSize>>20) << " MB, CompUnits: " <<
             maxComputeUnits << ", MaxGroupSize: " << maxWorkGroupSize << "\n";
 }
