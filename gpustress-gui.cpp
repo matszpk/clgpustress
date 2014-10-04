@@ -66,7 +66,7 @@
 #  define SIZE_T_SPEC "%zu"
 #endif
 
-#define PROGRAM_VERSION "0.0.8.1"
+#define PROGRAM_VERSION "0.0.8.2"
 
 extern const char* testDescsTable[];
 
@@ -826,7 +826,7 @@ TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
             "Copy this test configuration to all devices with this same configuration");
     toTheseSameDevsButton->callback(&TestConfigsGroup::copyToTheseSameCalled, this);
     
-    if (configs.empty())
+    if (configs.size() <= 1)
     {
         toAllDevicesButton->deactivate();
         toTheseSameDevsButton->deactivate();
@@ -1093,7 +1093,7 @@ TestLogsGroup::TestLogsGroup(GUIApp& _guiapp)
     logOutput->textfont(FL_COURIER);
     logOutput->textsize(12);
     
-    logOutput->scroll(100000, 0);
+    logOutput->scroll(maxLogLength, 0);
     
     resizable(logOutput);
     
@@ -1126,7 +1126,7 @@ void TestLogsGroup::selectedDeviceChanged(Fl_Widget* widget, void* data)
         return;
     
     t->logOutput->buffer(t->textBuffers[index]);
-    t->logOutput->scroll(1000000, 0);
+    t->logOutput->scroll(maxLogLength, 0);
 }
 
 void TestLogsGroup::saveLogCalled(Fl_Widget* widget, void* data)
@@ -1223,7 +1223,7 @@ static void appendToTextBuffetWithLimit(Fl_Text_Buffer* textBuffer,
 {
     if (textBuffer->length() + newLogs.size() > maxLogLength)
     {
-        if (textBuffer->length() > int(maxLogLength))
+        if (newLogs.size() > maxLogLength)
         {
             textBuffer->remove(0, textBuffer->length());
             const char* newStart = newLogs.c_str() + newLogs.size()-maxLogLength;
@@ -1276,7 +1276,7 @@ void TestLogsGroup::updateLogs(const std::string& newLogs, cxuint textBufferInde
         choiceTestLog(textBufferIndex);
         fl_alert("Failed test for device %s!", choiceLabels[textBufferIndex-1]);
     }
-    logOutput->scroll(1000000, 0);
+    logOutput->scroll(maxLogLength, 0);
 }
 
 void TestLogsGroup::choiceTestLog(cxuint index)
