@@ -1,7 +1,13 @@
 List of the changes:
 
-Version 0.0.8.1 (03.10.2014):
-- fixed for broken labels
+Version 0.0.8.2 (05.10.2014):
+- improved and fixed test logging in GUI version
+- added support for Windows GUI (error handling)
+- added support for Windows Console for GUI version
+- fixed device selection for CLI and GUI version
+
+Version 0.0.8.1 (04.10.2014):
+- fixes for broken labels
 - fixed device choice list (display all devices even if names are dupliclated)
 
 Version 0.0.8 (03.10.2014):
