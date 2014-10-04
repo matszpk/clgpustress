@@ -845,6 +845,8 @@ try
         
         for (cxuint i = 0; i < passItersNum; i++)
         {
+            if (stopAllStressTestersIfFail.load() || stopAllStressTestersByUser.load())
+                break;
             if (useInputAndOutput)
             {
                 if ((i&1) == 0)
@@ -860,6 +862,20 @@ try
             }
             clCmdQueue1.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
                     cl::NDRange(workSize), cl::NDRange(groupSize), nullptr, &exec1Events[i]);
+        }
+        if (stopAllStressTestersIfFail.load())
+        {
+            std::lock_guard<std::mutex> l(stdOutputMutex);
+            *outStream << "#" << id << " Exiting, because some device failed." << std::endl;
+            handleOutput();
+            break;
+        }
+        if (stopAllStressTestersByUser.load())
+        {
+            std::lock_guard<std::mutex> l(stdOutputMutex);
+            *outStream << "#" << id << " Exiting, because user stopped test." << std::endl;
+            handleOutput();
+            break;
         }
         run1Exec = true;
         
@@ -924,6 +940,8 @@ try
         
         for (cxuint i = 0; i < passItersNum; i++)
         {
+            if (stopAllStressTestersIfFail.load() || stopAllStressTestersByUser.load())
+                break;
             if (useInputAndOutput)
             {
                 if ((i&1) == 0)
@@ -939,6 +957,20 @@ try
             }
             clCmdQueue1.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
                     cl::NDRange(workSize), cl::NDRange(groupSize), nullptr, &exec2Events[i]);
+        }
+        if (stopAllStressTestersIfFail.load())
+        {
+            std::lock_guard<std::mutex> l(stdOutputMutex);
+            *outStream << "#" << id << " Exiting, because some device failed." << std::endl;
+            handleOutput();
+            break;
+        }
+        if (stopAllStressTestersByUser.load())
+        {
+            std::lock_guard<std::mutex> l(stdOutputMutex);
+            *outStream << "#" << id << " Exiting, because user stopped test." << std::endl;
+            handleOutput();
+            break;
         }
         run2Exec = true;
         
