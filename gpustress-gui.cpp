@@ -23,6 +23,9 @@
 #  define NOMINMAX 1
 #endif
 
+#ifdef _WINDOWS
+#include <windows.h>
+#endif
 #include <iostream>
 #include <ostream>
 #include <sstream>
@@ -1449,7 +1452,14 @@ bool GUIApp::run()
     int ret = Fl::run();
     if (ret != 0)
     {
+#ifdef _WINDOWS
+        std::ostringstream oss;
+        oss << "GUI App returns abnormally with code:" << ret << std::endl;
+        std::string ossStr = oss.str();
+        MessageBox(0, ossStr.c_str(), "Error", MB_ICONERROR);
+#else
         std::cerr << "GUI App returns abnormally with code:" << ret << std::endl;
+#endif
         return false;
     }
     return true;
@@ -1657,9 +1667,6 @@ int main(int argc, const char** argv)
     int cmd;
     poptContext optsContext;
     
-    outStream = &std::cout;
-    errStream = &std::cerr;
-    
     optsContext = poptGetContext("gpustress-gui", argc, argv, optionsTable, 0);
     
     bool globalInputAndOutput = false;
@@ -1677,16 +1684,34 @@ int main(int argc, const char** argv)
         poptFreeContext(optsContext);
         return 1;
     }
-    
+
+#ifndef _WINDOWS
     std::cout << "CLGPUStress GUI " PROGRAM_VERSION " by Mateusz Szpakowski. "
         "Program is distributed under terms of the GPLv2." << std::endl;
+#endif
     if (printVersion)
     {
+#ifdef _WINDOWS
+        if(AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole()){
+            freopen("CONOUT$", "w", stdout);
+            freopen("CONOUT$", "w", stderr);
+        }
+        std::cout << "\nCLGPUStress GUI " PROGRAM_VERSION " by Mateusz Szpakowski. "
+            "Program is distributed under terms of the GPLv2." << std::endl;
+#endif
         poptFreeContext(optsContext);
         return 0; // that's all
     }
     if (printHelp)
     {
+#ifdef _WINDOWS
+        if(AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole()){
+            freopen("CONOUT$", "w", stdout);
+            freopen("CONOUT$", "w", stderr);
+        }
+        std::cout << "\nCLGPUStress GUI " PROGRAM_VERSION " by Mateusz Szpakowski. "
+            "Program is distributed under terms of the GPLv2." << std::endl;
+#endif
         std::cout << std::endl;
         poptPrintHelp(optsContext, stdout, 0);
         poptFreeContext(optsContext);
@@ -1700,6 +1725,14 @@ int main(int argc, const char** argv)
     }
     if (printUsage)
     {
+#ifdef _WINDOWS
+        if(AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole()){
+            freopen("CONOUT$", "w", stdout);
+            freopen("CONOUT$", "w", stderr);
+        }
+        std::cout << "\nCLGPUStress GUI " PROGRAM_VERSION " by Mateusz Szpakowski. "
+            "Program is distributed under terms of the GPLv2." << std::endl;
+#endif
         std::cout << std::endl;
         poptPrintUsage(optsContext, stdout, 0);
         poptFreeContext(optsContext);
@@ -1761,13 +1794,28 @@ int main(int argc, const char** argv)
     }
     catch(const cl::Error& error)
     {
+#ifdef _WINDOWS
+        std::ostringstream oss;
+        oss << "OpenCL error happened: " << error.what() <<
+                ", Code: " << error.err() << std::endl;
+        std::string ossStr = oss.str();
+        MessageBox(0, ossStr.c_str(), "Error", MB_ICONERROR);
+#else
         std::cerr << "OpenCL error happened: " << error.what() <<
                 ", Code: " << error.err() << std::endl;
+#endif
         retVal = 1;
     }
     catch(const std::exception& ex)
     {
+#ifdef _WINDOWS
+        std::ostringstream oss;
+        oss << "Exception happened: " << ex.what() << std::endl;
+        std::string ossStr = oss.str();
+        MessageBox(0, ossStr.c_str(), "Error", MB_ICONERROR);
+#else
         std::cerr << "Exception happened: " << ex.what() << std::endl;
+#endif
         retVal = 1;
     }
     
