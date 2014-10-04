@@ -62,7 +62,7 @@ struct GPUStressConfig
     bool inputAndOutput;
 };
 
-typedef void (*OutputHandler)(void* data);
+typedef void (*OutputHandler)(void* data, cxuint id);
 
 extern int useCPUs;
 extern int useGPUs;
@@ -99,6 +99,13 @@ extern std::vector<GPUStressConfig> collectGPUStressConfigs(cxuint devicesNum,
 
 extern void installOutputHandler(std::ostream* out, std::ostream* err,
                 OutputHandler handler = nullptr, void* data = nullptr);
+
+inline void handleOutput(cxuint id)
+{
+    if (outputHandler == nullptr)
+        return;
+    outputHandler(outputHandlerData, id);
+}
 
 class GPUStressTester
 {

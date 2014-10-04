@@ -189,12 +189,13 @@ private:
     struct HandleOutputData
     {
         std::string outStr;
+        cxuint textBufferIndex;
         GUIApp* guiapp;
     };
     
     bool testFinishedWithException;
     
-    static void handleOutput(void* data);
+    static void handleOutput(void* data, cxuint id);
     static void handleOutputAwake(void* data);
     
     static void stressEndAwake(void* data);
@@ -1054,9 +1055,6 @@ private:
     
     std::vector<Fl_Text_Buffer*> textBuffers;
     
-    bool logInit;
-    cxuint logCurTextBuffer; // 0 - global, other: device no. value-1
-    
     Fl_Text_Display* logOutput;
     
     Fl_Button* saveLogButton;
@@ -1076,7 +1074,7 @@ public:
     ~TestLogsGroup();
     
     void updateDeviceList();
-    void updateLogs(const std::string& newLogs);
+    void updateLogs(const std::string& newLogs, cxuint textBufferIndex);
     void choiceTestLog(cxuint index);
 };
 
@@ -1218,9 +1216,6 @@ void TestLogsGroup::updateDeviceList()
         clearLogButton->deactivate();
         logOutput->deactivate();
     }
-    
-    logInit = false;
-    logCurTextBuffer = 0;
 }
 
 static void appendToTextBuffetWithLimit(Fl_Text_Buffer* textBuffer,
@@ -1265,91 +1260,22 @@ static void appendToTextBuffetWithLimit(Fl_Text_Buffer* textBuffer,
         textBuffer->append(newLogs.c_str());
 }
 
-void TestLogsGroup::updateLogs(const std::string& newLogs)
+void TestLogsGroup::updateLogs(const std::string& newLogs, cxuint textBufferIndex)
 {
     if (newLogs.empty())
         return;
     appendToTextBuffetWithLimit(textBuffers[0], newLogs);
+    if (textBufferIndex != 0)
+        appendToTextBuffetWithLimit(textBuffers[textBufferIndex], newLogs);
     
-    if (newLogs.compare(0, 23, "Fixed groupSize for\n  #") == 0)
+    if (newLogs.compare(0, 23, "Failed StressTester for") == 0)
     {
-        logInit = true;
-        if (sscanf(newLogs.c_str()+23, "%u", &logCurTextBuffer) != 1)
-            throw MyException("Fatal parse log output!");
-        if (logCurTextBuffer+1 >= textBuffers.size())
-            throw MyException("Fatal error: Device ID out of range in log output!");
-        logCurTextBuffer++;
-    }
-    
-    if (logInit)
-    {
-        appendToTextBuffetWithLimit(textBuffers[logCurTextBuffer], newLogs);
-        if (newLogs.compare(0, 19, "Program build log:\n") == 0)
-            logInit = false;
-        return;
-    }
-    
-    if (newLogs.compare(0, 30, "Preparing StressTester for\n  #") == 0)
-    {
-        if (sscanf(newLogs.c_str()+30, "%u", &logCurTextBuffer) != 1)
-            throw MyException("Fatal error: parse log output!");
-        if (logCurTextBuffer+1 >= textBuffers.size())
-            throw MyException("Fatal error: Device ID out of range in log output!");
-        logCurTextBuffer++;
-        logInit = true;
-        appendToTextBuffetWithLimit(textBuffers[logCurTextBuffer], newLogs);
-    }
-    else if (newLogs[0] == '#')
-    {
-        cxuint textBufferIndex;
-        if (sscanf(newLogs.c_str()+1, "%u", &textBufferIndex) != 1)
-            throw MyException("Fatal error: parse log output!");
-        if (textBufferIndex+1 >= textBuffers.size())
-            throw MyException("Fatal error: Device ID out of range in log output!");
-        appendToTextBuffetWithLimit(textBuffers[textBufferIndex+1], newLogs);
-    }
-    else if (newLogs.compare(0, 27, "Failed StressTester for\n  #") == 0)
-    {
-        cxuint textBufferIndex;
-        if (sscanf(newLogs.c_str()+27, "%u", &textBufferIndex) != 1)
-            throw MyException("Fatal error: parse log output!");
-        if (textBufferIndex+1 >= textBuffers.size())
-            throw MyException("Fatal error: Device ID out of range in log output!");
-        appendToTextBuffetWithLimit(textBuffers[textBufferIndex+1], newLogs);
-        
+        if (textBufferIndex == 0)
+            throw MyException("Invalid text buffer!");
         guiapp.setTabToTestLogs();
-        choiceTestLog(textBufferIndex+1);
-        fl_alert("Failed test for #%u: %s!", textBufferIndex+1,
-                 choiceLabels[textBufferIndex]);
+        choiceTestLog(textBufferIndex);
+        fl_alert("Failed test for device %s!", choiceLabels[textBufferIndex-1]);
     }
-    else if (newLogs.compare(0, 23, "Fixed groupSize for\n  #") == 0)
-    {
-        cxuint textBufferIndex;
-        if (sscanf(newLogs.c_str()+23, "%u", &textBufferIndex) != 1)
-            throw MyException("Fatal error: parse log output!");
-        if (textBufferIndex+1 >= textBuffers.size())
-            throw MyException("Fatal error: Device ID out of range in log output!");
-        appendToTextBuffetWithLimit(textBuffers[textBufferIndex+1], newLogs);
-    }
-    else if (newLogs.compare(0, 10, "Finished #") == 0)
-    {
-        cxuint textBufferIndex;
-        if (sscanf(newLogs.c_str()+10, "%u", &textBufferIndex) != 1)
-            throw MyException("Fatal error: parse log output!");
-        if (textBufferIndex+1 >= textBuffers.size())
-            throw MyException("Fatal error: Device ID out of range in log output!");
-        appendToTextBuffetWithLimit(textBuffers[textBufferIndex+1], newLogs);
-    }
-    else if (newLogs.compare(0, 8, "Failed #") == 0)
-    {
-        cxuint textBufferIndex;
-        if (sscanf(newLogs.c_str()+8, "%u", &textBufferIndex) != 1)
-            throw MyException("Fatal error: parse log output!");
-        if (textBufferIndex+1 >= textBuffers.size())
-            throw MyException("Fatal error: Device ID out of range in log output!");
-        appendToTextBuffetWithLimit(textBuffers[textBufferIndex+1], newLogs);
-    }
-    
     logOutput->scroll(1000000, 0);
 }
 
@@ -1465,13 +1391,14 @@ bool GUIApp::run()
     return true;
 }
 
-void GUIApp::handleOutput(void* data)
+void GUIApp::handleOutput(void* data, cxuint id)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
  
     HandleOutputData* odata = new HandleOutputData;
     odata->outStr = guiapp->logOutputStream.str();
     odata->guiapp = guiapp;
+    odata->textBufferIndex = (id != UINT_MAX) ? id+1 : 0;
     guiapp->logOutputStream.str(std::string()); // clear all
     // awake
     Fl::awake(&GUIApp::handleOutputAwake, odata);
@@ -1480,7 +1407,7 @@ void GUIApp::handleOutput(void* data)
 void GUIApp::handleOutputAwake(void* data)
 {
     HandleOutputData* odata = reinterpret_cast<HandleOutputData*>(data);
-    odata->guiapp->testLogsGrp->updateLogs(odata->outStr);
+    odata->guiapp->testLogsGrp->updateLogs(odata->outStr, odata->textBufferIndex);
     delete odata;
 }
 
@@ -1568,21 +1495,21 @@ void GUIApp::runStress()
         std::lock_guard<std::mutex> l(stdOutputMutex);
         logOutputStream << "OpenCL error happened: " << err.what() <<
                     ", Code: " << err.err() << std::endl;
-        handleOutput(this);
+        handleOutput(this, UINT_MAX);
     }
     catch(const std::exception& ex)
     {
         testFinishedWithException = true;
         std::lock_guard<std::mutex> l(stdOutputMutex);
         logOutputStream << "Exception happened: " << ex.what() << std::endl;
-        handleOutput(this);
+        handleOutput(this, UINT_MAX);
     }
     catch(...)
     {
         testFinishedWithException = true;
         std::lock_guard<std::mutex> l(stdOutputMutex);
         logOutputStream << "Unknown exception happened" << std::endl;
-        handleOutput(this);
+        handleOutput(this, UINT_MAX);
     }
     
     try
@@ -1597,7 +1524,7 @@ void GUIApp::runStress()
                     std::lock_guard<std::mutex> l(stdOutputMutex);
                     logOutputStream << "Failed join for stress thread #" << i <<
                             "!!!" << std::endl;
-                    handleOutput(this);
+                    handleOutput(this, i);
                 }
                 delete testerThreads[i];
                 testerThreads[i] = nullptr;
@@ -1606,7 +1533,7 @@ void GUIApp::runStress()
                 {
                     std::lock_guard<std::mutex> l(stdOutputMutex);
                     logOutputStream << "Finished #" << i << std::endl;
-                    handleOutput(this);
+                    handleOutput(this, i);
                 }
             }
         
@@ -1616,7 +1543,7 @@ void GUIApp::runStress()
             {
                 std::lock_guard<std::mutex> l(stdOutputMutex);
                 logOutputStream << "Failed #" << i << std::endl;
-                handleOutput(this);
+                handleOutput(this, i);
             }
             delete gpuStressTesters[i];
         }
@@ -1627,7 +1554,7 @@ void GUIApp::runStress()
         std::lock_guard<std::mutex> l(stdOutputMutex);
         logOutputStream << "OpenCL error happened: " << err.what() <<
                     ", Code: " << err.err() << std::endl;
-        handleOutput(this);
+        handleOutput(this, UINT_MAX);
         Fl::awake(&GUIApp::stressEndAwake, this);
     }
     catch(const std::exception& ex)
@@ -1635,7 +1562,7 @@ void GUIApp::runStress()
         testFinishedWithException = true;
         std::lock_guard<std::mutex> l(stdOutputMutex);
         logOutputStream << "Exception happened: " << ex.what() << std::endl;
-        handleOutput(this);
+        handleOutput(this, UINT_MAX);
         Fl::awake(&GUIApp::stressEndAwake, this);
     }
     catch(...)
@@ -1643,7 +1570,7 @@ void GUIApp::runStress()
         testFinishedWithException = true;
         std::lock_guard<std::mutex> l(stdOutputMutex);
         logOutputStream << "Unknown exception happened" << std::endl;
-        handleOutput(this);
+        handleOutput(this, UINT_MAX);
     }
     
     Fl::awake(&GUIApp::stressEndAwake, this);
