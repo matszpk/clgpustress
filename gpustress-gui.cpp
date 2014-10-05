@@ -1338,6 +1338,7 @@ try
     aboutText->label("CLGPUStress GUI " PROGRAM_VERSION " by Mateusz Szpakowski.\n"
         "Program is distributed under terms of the GPLv2.\n"
         "\n"
+        "Website: http://clgpustress.nativeboinc.org/\n"
         "Sources available at https://github.com/matszpk/clgpustress.\n"
         "Binaries available at http://files.nativeboinc.org/offtopic/clgpustress.");
     aboutGrp->end();

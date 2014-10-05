@@ -16,9 +16,15 @@ BUT MUCH BETTER LOADS GPU CORE. MOREOVER MUCH BETTER BURNS GRAPHICS CARD THAN FU
 
 **YOU ARE USING THIS SOFTWARE ONLY AT YOUR OWN RISK!**
 
-### Available binaries
+### Binaries, sources and website
 
-Binaries are at http://files.nativeboinc.org/offtopic/clgpustress/.
+Project website: http://clgpustress.nativeboinc.org/.
+
+Binaries are at http://files.nativeboinc.org/offtopic/clgpustress/ and at
+http://clgpustress.nativeboinc.org/downloads.html.
+
+Source code packages are at http://clgpustress.nativeboinc.org/downloads.html and
+at this site.
 
 ### Program behaviour
 
