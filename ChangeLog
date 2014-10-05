@@ -7,7 +7,9 @@ Version 0.0.8.5 (05.10.2014):
 - fixed device selection for CLI and GUI version
 - added device type to device info
 - safe exit main window closed
-- escape key only stop tests
+- escape key causes only stopping tests
+- fixed serious losing of the messages while logging (GUI)
+- improved fluent working at huge passIters (wait per some iters at host)
 
 Version 0.0.8.1 (04.10.2014):
 - fixes for broken labels
