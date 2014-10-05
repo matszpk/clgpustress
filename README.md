@@ -46,11 +46,13 @@ By default program terminates stress testing when any device will fail. You can 
 
 ### Software requirements:
 
-- popt library
-- OpenCL support
-- cl.hpp (OpenCL C++ support)
-- compiler with C++11 support
-- FLTK 1.3 for GUI version
+- Windows or Linux operating system in x86 or x86-64 version (for binaries)
+- OpenCL 1.1 or later (from GPU vendor drivers or other compatible)
+- OpenCL 1.1 C++ binding later (for compilation)
+- popt library (only for Linux version or for compilation)
+- C++11 compliant compiler or Microsoft Visual Studio Express 2012 (for compilation)
+- C++11 compliant C++ libraries (only for Linux)
+- FLTK 1.3 for GUI version (for compilation, binaries are statically linked with FLTK)
 
 ### Building program
 
