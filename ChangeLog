@@ -1,6 +1,6 @@
 List of the changes:
 
-Version 0.0.8.2 (05.10.2014):
+Version 0.0.8.5 (05.10.2014):
 - improved and fixed test logging in GUI version
 - added support for Windows GUI (error handling)
 - added support for Windows Console for GUI version

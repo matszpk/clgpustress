@@ -66,7 +66,7 @@
 #  define SIZE_T_SPEC "%zu"
 #endif
 
-#define PROGRAM_VERSION "0.0.8.2"
+#define PROGRAM_VERSION "0.0.8.5"
 
 extern const char* testDescsTable[];
 
