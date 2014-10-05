@@ -1576,7 +1576,7 @@ void GUIApp::mainWinExitCalled(Fl_Widget* widget, void* data)
             startStopCalled(guiapp->startStopButton, guiapp);
         return; // ignore escape key
     }
-    ::exit(0); // foce immediate exit (for safety)
+    widget->hide();
 }
 
 void GUIApp::setTabToTestLogs()
@@ -1678,6 +1678,7 @@ int main(int argc, const char** argv)
     
     int retVal = 0;
     
+    GUIApp* guiapp = nullptr;
     std::vector<GPUStressConfig> gpuStressConfigs;
     try
     {
@@ -1720,8 +1721,8 @@ int main(int argc, const char** argv)
         }
         
         /* run window */
-        GUIApp guiapp(choosenClDevices, gpuStressConfigs);
-        if (!guiapp.run())
+        guiapp = new GUIApp(choosenClDevices, gpuStressConfigs);
+        if (!guiapp->run())
             retVal = 1;
     }
     catch(const cl::Error& error)
