@@ -170,8 +170,8 @@ class TestLogsGroup;
 class GUIApp
 {
 private:
-    Fl_Window* alertWin;
     Fl_Window* mainWin;
+    Fl_Window* alertWin;
     Fl_Tabs* mainTabs;
     
     DeviceChoiceGroup* deviceChoiceGrp;
@@ -202,6 +202,8 @@ private:
     
     static void startStopCalled(Fl_Widget* widget, void* data);
     static void dismissAlertCalled(Fl_Widget* widget, void* data);
+    
+    static void mainWinExitCalled(Fl_Widget* widget, void* data);
     
 public:
     GUIApp(const std::vector<cl::Device>& clDevices,
@@ -285,6 +287,8 @@ public:
     { viewGroup->activate(); }
     void deactivateView()
     { viewGroup->deactivate(); }
+    
+    void initialChoice(const std::vector<cl::Device>& inClDevices);
 };
 
 DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
@@ -451,7 +455,16 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
     viewGroup->resizable(devicesTree);
     viewGroup->end();
     end();
-    
+}
+
+DeviceChoiceGroup::~DeviceChoiceGroup()
+{
+    for (char* s: labels)
+        ::free(s);
+}
+
+void DeviceChoiceGroup::initialChoice(const std::vector<cl::Device>& inClDevices)
+{
     if (devicesListString != nullptr)
     {   /* enable choosen devices from command line */
         std::set<cl_device_id> inClDeviceIDsSet;
@@ -468,12 +481,6 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
     else
         byFilterChanged(useAllPlatformsButton, this);
     guiapp.updateGlobal();
-}
-
-DeviceChoiceGroup::~DeviceChoiceGroup()
-{
-    for (char* s: labels)
-        ::free(s);
 }
 
 void DeviceChoiceGroup::choiceTypeIsSet(Fl_Widget* widget, void* data)
@@ -591,7 +598,7 @@ private:
     Fl_Choice* builtinKernelChoice;
     Fl_Check_Button* inputAndOutputButton;
 public:
-    SingleTestConfigGroup(const cl::Device& clDevice, const GPUStressConfig* config);
+    SingleTestConfigGroup(const cl::Device& clDevice);
     GPUStressConfig getConfig() const;
     void setConfig(const cl::Device& clDevice, const GPUStressConfig& config);
     
@@ -600,8 +607,8 @@ public:
     void installCallback(void (*cb)(Fl_Widget*, void*), void* data);
 };
 
-SingleTestConfigGroup::SingleTestConfigGroup(const cl::Device& clDevice,
-        const GPUStressConfig* config) : Fl_Group(10, 60, 740, 300)
+SingleTestConfigGroup::SingleTestConfigGroup(const cl::Device& clDevice)
+        : Fl_Group(10, 60, 740, 300)
 {
     box(FL_THIN_UP_FRAME);
     Fl_Group* group = new Fl_Group(20, 70, 720, 220);
@@ -640,11 +647,6 @@ SingleTestConfigGroup::SingleTestConfigGroup(const cl::Device& clDevice,
     Fl_Box* box = new Fl_Box(20, 300, 740, 60);
     resizable(box);
     end();
-    
-    if (config != nullptr)
-        setConfig(clDevice, *config);
-    else
-        deactivate();
 }
 
 GPUStressConfig SingleTestConfigGroup::getConfig() const
@@ -783,48 +785,12 @@ TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
     for (size_t i = 0; i < configs.size(); i++)
         allConfigsMap.insert(std::make_pair(clDevices[i](), configs[i]));
     
-    const DeviceChoiceGroup* devChoiceGroup = guiapp.getDeviceChoiceGroup();
     curClDeviceID = nullptr;
     viewGroup = new Fl_Group(0, 20, 760, 380);
     deviceChoice = new Fl_Choice(70, 32, 680, 20, "Device:");
     deviceChoice->tooltip("Choose device for which test will be configured");
     
-    size_t j = 0;
-    for (size_t i = 0; i < devChoiceGroup->getClDevicesNum(); i++)
-        if (devChoiceGroup->isClDeviceEnabled(i))
-        {
-            const cl::Device& clDevice = devChoiceGroup->getClDevice(i);
-            cl::Platform clPlatform;
-            clDevice.getInfo(CL_DEVICE_PLATFORM, &clPlatform);
-            std::string platformName;
-            clPlatform.getInfo(CL_PLATFORM_NAME, &platformName);
-            std::string deviceName;
-            clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
-            
-            char buf[32];
-            snprintf(buf, 32, SIZE_T_SPEC ": ", j++);
-            std::string label(buf);
-            label += platformName;
-            label += ":";
-            label += deviceName;
-            label = escapeForFlMenu(label);
-            
-            choiceLabels.push_back(::strdup(label.c_str()));
-            deviceChoice->add(choiceLabels.back());
-            
-            if (curClDeviceID == nullptr)
-                curClDeviceID = clDevice();
-            choosenClDeviceIDs.push_back(clDevice());
-        }
-    
-    if (!configs.empty())
-    {
-        singleConfigGroup = new SingleTestConfigGroup(
-                    cl::Device(curClDeviceID), &allConfigsMap[curClDeviceID]);
-        deviceChoice->value(0);
-    }
-    else // if empty
-        singleConfigGroup = new SingleTestConfigGroup(cl::Device(), nullptr);
+    singleConfigGroup = new SingleTestConfigGroup(cl::Device());
     
     deviceChoice->callback(&TestConfigsGroup::selectedDeviceChanged, this);
     singleConfigGroup->installCallback(&TestConfigsGroup::singleConfigChanged, this);
@@ -837,12 +803,6 @@ TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
     toTheseSameDevsButton->tooltip(
             "Copy this test configuration to all devices with this same configuration");
     toTheseSameDevsButton->callback(&TestConfigsGroup::copyToTheseSameCalled, this);
-    
-    if (configs.size() <= 1)
-    {
-        toAllDevicesButton->deactivate();
-        toTheseSameDevsButton->deactivate();
-    }
     
     viewGroup->resizable(singleConfigGroup);
     viewGroup->end();
@@ -1091,7 +1051,8 @@ public:
 };
 
 TestLogsGroup::TestLogsGroup(GUIApp& _guiapp)
-        : Fl_Group(0, 20, 760, 380, "Test logs"), guiapp(_guiapp)
+try
+        : Fl_Group(0, 20, 760, 380, "Test logs"), fileChooser(nullptr), guiapp(_guiapp)
 {
     fileChooser = new Fl_File_Chooser(".", "*.log", Fl_File_Chooser::CREATE, "Save log");
     fileChooser->callback(&TestLogsGroup::saveLogChooserCalled, this);
@@ -1121,9 +1082,17 @@ TestLogsGroup::TestLogsGroup(GUIApp& _guiapp)
     logOutput->deactivate();
     end();
 }
+catch(...)
+{
+    delete fileChooser;
+}
 
 TestLogsGroup::~TestLogsGroup()
 {
+    delete fileChooser;
+    logOutput->buffer(nullptr);
+    for (Fl_Text_Buffer* tbuf: textBuffers)
+        delete tbuf;
     for (char* s: choiceLabels)
         ::free(s);
 }
@@ -1304,7 +1273,7 @@ void TestLogsGroup::choiceTestLog(cxuint index)
 GUIApp::GUIApp(const std::vector<cl::Device>& clDevices,
            const std::vector<GPUStressConfig>& configs)
 try
-        : mainWin(nullptr), mainTabs(nullptr), deviceChoiceGrp(nullptr)
+        : mainWin(nullptr), alertWin(nullptr)
 {
     mainStressThread = nullptr;
     
@@ -1358,24 +1327,27 @@ try
     mainWin->resizable(mainTabs);
     mainWin->end();
     
+    mainWin->callback(&GUIApp::mainWinExitCalled, this);
+    
     installOutputHandler(&logOutputStream, &logOutputStream, &GUIApp::handleOutput, this);
+    deviceChoiceGrp->initialChoice(clDevices);
     updateGlobal();
 }
 catch(...)
 {
     delete mainWin;
+    delete alertWin;
     throw;
 }
 
 GUIApp::~GUIApp()
 {
     delete mainWin;
+    delete alertWin;
 }
 
 void GUIApp::updateGlobal()
 {
-    if (deviceChoiceGrp == nullptr || startStopButton == nullptr)
-        return;
     if (deviceChoiceGrp->getEnabledDevicesCount() != 0)
         startStopButton->activate();
     else
@@ -1433,7 +1405,8 @@ void GUIApp::stressEndAwake(void* data)
     guiapp->startStopButton->label("START");
     guiapp->startStopButton->tooltip("Start stress test for all devices");
     guiapp->exitAllFailsButton->activate();
-    guiapp->mainStressThread->join();
+    if (guiapp->mainStressThread != nullptr)
+        guiapp->mainStressThread->join();
     delete guiapp->mainStressThread;
     guiapp->mainStressThread = nullptr;
     if (guiapp->testFinishedWithException)
@@ -1592,6 +1565,22 @@ void GUIApp::dismissAlertCalled(Fl_Widget* widget, void* data)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
     guiapp->alertWin->hide();
+}
+
+void GUIApp::mainWinExitCalled(Fl_Widget* widget, void* data)
+{
+    GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
+    if (Fl::event()==FL_SHORTCUT && Fl::event_key()==FL_Escape) 
+        return; // ignore escape key
+    guiapp->startStopButton->deactivate();
+    if (guiapp->mainStressThread != nullptr)
+    {   // stoping thread
+        stopAllStressTestersByUser.store(true);
+        guiapp->mainStressThread->join();
+        delete guiapp->mainStressThread;
+        guiapp->mainStressThread = nullptr;
+    }
+    widget->hide();
 }
 
 void GUIApp::setTabToTestLogs()
