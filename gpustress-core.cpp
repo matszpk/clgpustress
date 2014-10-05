@@ -1195,7 +1195,7 @@ catch(const cl::Error& error)
     catch(...)
     {
         std::lock_guard<std::mutex> l(stdOutputMutex);
-        *errStream << "Cant print fatal error!!!" << std::endl;
+        *errStream << "Can't print fatal error!!!" << std::endl;
         handleOutput(id);
     } // fatal exception!!!
 }
@@ -1215,7 +1215,7 @@ catch(const std::exception& ex)
     catch(...)
     {
         std::lock_guard<std::mutex> l(stdOutputMutex);
-        *errStream << "Cant print fatal error!!!" << std::endl;
+        *errStream << "Can't print fatal error!!!" << std::endl;
         handleOutput(id);
     } // fatal exception!!!
 }
@@ -1234,7 +1234,7 @@ catch(...)
     catch(...)
     {
         std::lock_guard<std::mutex> l(stdOutputMutex);
-        *errStream << "Cant print fatal error!!!" << std::endl;
+        *errStream << "Can't print fatal error!!!" << std::endl;
         handleOutput(id);
     } // fatal exception!!!
 }
