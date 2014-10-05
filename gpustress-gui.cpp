@@ -1304,7 +1304,7 @@ void TestLogsGroup::choiceTestLog(cxuint index)
 GUIApp::GUIApp(const std::vector<cl::Device>& clDevices,
            const std::vector<GPUStressConfig>& configs)
 try
-        : mainWin(nullptr)
+        : mainWin(nullptr), mainTabs(nullptr), deviceChoiceGrp(nullptr)
 {
     mainStressThread = nullptr;
     
