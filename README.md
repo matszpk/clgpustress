@@ -25,7 +25,14 @@ and at
 [http://clgpustress.nativeboinc.org/downloads.html](http://clgpustress.nativeboinc.org/downloads.html).
 
 Source code packages are at [http://clgpustress.nativeboinc.org/downloads.html](http://clgpustress.nativeboinc.org/downloads.html) and
-at this site.
+at [https://github.com/matszpk/clgpustress](https://github.com/matszpk/clgpustress).
+
+Source codes are at [https://github.com/matszpk/clgpustress](https://github.com/matszpk/clgpustress).
+
+### License
+
+Program is distributed under the GPLv2 license.
+For more information please read LICENSE file inside the program package.
 
 ### Program behaviour
 
