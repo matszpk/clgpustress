@@ -72,7 +72,7 @@ std::vector<cxuint> parseCmdUIntList(const char* str, const char* name)
     {
         cxuint val;
         if (sscanf(p, "%u", &val) != 1)
-            throw MyException(std::string("Cant parse ")+name);
+            throw MyException(std::string("Can't parse ")+name);
         outVector.push_back(val);
         
         while (*p != 0 && *p != ',') p++;
@@ -80,7 +80,7 @@ std::vector<cxuint> parseCmdUIntList(const char* str, const char* name)
         {
             p++;
             if (*p == 0)
-                throw MyException(std::string("Cant parse ")+name);
+                throw MyException(std::string("Can't parse ")+name);
         }
     }
     return outVector;
@@ -99,7 +99,7 @@ std::vector<bool> parseCmdBoolList(const char* str, const char* name)
         else if (*p == 'N' || *p == 'n' || *p == '0' || *p == 'F' || *p == 'f' || *p == '-')
             outVector.push_back(false);
         else
-            throw MyException(std::string("Cant parse ")+name);
+            throw MyException(std::string("Can't parse ")+name);
     }
     return outVector;
 }
@@ -158,7 +158,7 @@ std::vector<cl::Device> getChoosenCLDevicesFromList(const char* str)
     {
         cxuint platformId, deviceId;
         if (sscanf(p, "%u:%u", &platformId, &deviceId) != 2)
-            throw MyException("Cant parse device list");
+            throw MyException("Can't parse device list");
         
         if (platformId >= clPlatforms.size())
             throw MyException("PlatformID out of range");
@@ -180,7 +180,7 @@ std::vector<cl::Device> getChoosenCLDevicesFromList(const char* str)
         {
             p++;
             if (*p == 0)
-                throw MyException("Cant parse device list");
+                throw MyException("Can't parse device list");
         }
     }
     
@@ -550,7 +550,7 @@ void GPUStressTester::buildKernel(cxuint thisKitersNum, cxuint thisBlocksNum,
         for (shifts = 0, v = groupSize; v > newGroupSize; v>>=1, shifts++);
         
         if ((groupSize&((1ULL<<shifts)-1ULL)) != 0)
-            throw MyException("Cant determine new group size!");
+            throw MyException("Can't determine new group size!");
         
         groupSize >>= shifts;
         workFactor <<= shifts;
