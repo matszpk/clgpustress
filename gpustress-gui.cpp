@@ -1570,17 +1570,13 @@ void GUIApp::dismissAlertCalled(Fl_Widget* widget, void* data)
 void GUIApp::mainWinExitCalled(Fl_Widget* widget, void* data)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
-    if (Fl::event()==FL_SHORTCUT && Fl::event_key()==FL_Escape) 
+    if (Fl::event()==FL_SHORTCUT && Fl::event_key()==FL_Escape)
+    {
+        if (guiapp->mainStressThread != nullptr)
+            startStopCalled(guiapp->startStopButton, guiapp);
         return; // ignore escape key
-    guiapp->startStopButton->deactivate();
-    if (guiapp->mainStressThread != nullptr)
-    {   // stoping thread
-        stopAllStressTestersByUser.store(true);
-        guiapp->mainStressThread->join();
-        delete guiapp->mainStressThread;
-        guiapp->mainStressThread = nullptr;
     }
-    widget->hide();
+    ::exit(0); // foce immediate exit (for safety)
 }
 
 void GUIApp::setTabToTestLogs()
