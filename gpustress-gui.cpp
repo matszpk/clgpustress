@@ -1610,12 +1610,8 @@ int main(int argc, const char** argv)
             poptStrerror(cmd);
         oss.flush();
         std::string ossStr = oss.str();
-#ifdef _WINDOWS
-        MessageBox(0, ossStr.c_str(), "Error", MB_ICONERROR);
-#else
         std::cerr << ossStr << std::endl;
         fl_alert("%s", ossStr.c_str());
-#endif
         poptFreeContext(optsContext);
         return 1;
     }
@@ -1735,12 +1731,8 @@ int main(int argc, const char** argv)
                 ", Code: " << error.err();
         oss.flush();
         std::string ossStr = oss.str();
-#ifdef _WINDOWS
-        MessageBox(0, ossStr.c_str(), "Error", MB_ICONERROR);
-#else
         std::cerr << ossStr << std::endl;
         fl_alert("%s", ossStr.c_str());
-#endif
         retVal = 1;
     }
     catch(const std::exception& ex)
@@ -1749,12 +1741,8 @@ int main(int argc, const char** argv)
         oss << "Exception happened: " << ex.what();
         oss.flush();
         std::string ossStr = oss.str();
-#ifdef _WINDOWS
-        MessageBox(0, ossStr.c_str(), "Error", MB_ICONERROR);
-#else
         std::cerr << ossStr << std::endl;
         fl_alert("%s", ossStr.c_str());
-#endif
         retVal = 1;
     }
     
