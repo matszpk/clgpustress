@@ -809,6 +809,9 @@ void GPUStressTester::calibrateKernel()
     // determine how many iterations can be queued at same time
     if (kernelTime != 0)
         stepsPerWait = ::ceil(3e8 / double(kernelTime));
+    else // force 1000 if kernelTime is zero
+        stepsPerWait = 1000;
+    
     if (stepsPerWait < 2)
         stepsPerWait = 2;
     {
