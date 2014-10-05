@@ -1386,7 +1386,7 @@ void GUIApp::handleOutput(void* data, cxuint id)
     odata->textBufferIndex = (id != UINT_MAX) ? id+1 : 0;
     guiapp->logOutputStream.str(std::string()); // clear all
     // awake
-    Fl::awake(&GUIApp::handleOutputAwake, odata);
+    while (Fl::awake(&GUIApp::handleOutputAwake, odata) != 0);
 }
 
 void GUIApp::handleOutputAwake(void* data)
@@ -1540,7 +1540,7 @@ void GUIApp::runStress()
         logOutputStream << "OpenCL error happened: " << err.what() <<
                     ", Code: " << err.err() << std::endl;
         handleOutput(this, UINT_MAX);
-        Fl::awake(&GUIApp::stressEndAwake, this);
+        while (Fl::awake(&GUIApp::stressEndAwake, this) != 0);
     }
     catch(const std::exception& ex)
     {
@@ -1548,7 +1548,7 @@ void GUIApp::runStress()
         std::lock_guard<std::mutex> l(stdOutputMutex);
         logOutputStream << "Exception happened: " << ex.what() << std::endl;
         handleOutput(this, UINT_MAX);
-        Fl::awake(&GUIApp::stressEndAwake, this);
+        while (Fl::awake(&GUIApp::stressEndAwake, this) != 0);
     }
     catch(...)
     {
@@ -1558,7 +1558,7 @@ void GUIApp::runStress()
         handleOutput(this, UINT_MAX);
     }
     
-    Fl::awake(&GUIApp::stressEndAwake, this);
+    while (Fl::awake(&GUIApp::stressEndAwake, this) != 0);
 }
 
 void GUIApp::dismissAlertCalled(Fl_Widget* widget, void* data)

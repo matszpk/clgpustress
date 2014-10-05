@@ -24,6 +24,7 @@
 #endif
 
 #include <cstdio>
+#include <cmath>
 #include <cstring>
 #include <utility>
 #include <set>
@@ -577,7 +578,11 @@ void GPUStressTester::calibrateKernel()
     cxuint bestKitersNum = 1;
     double bestBandwidth = 0.0;
     double bestPerf = 0.0;
+    cl_ulong bestKernelTime = CL_ULONG_MAX;
+    cl_ulong kernelTime = 0;
+    cl::CommandQueue profCmdQueue(clContext, clDevice, CL_QUEUE_PROFILING_ENABLE);
     
+    const bool profileKernelAfterBuilt = (kitersNum != 0);
     if (kitersNum == 0)
     {
         if (useInputAndOutput)
@@ -592,8 +597,6 @@ void GPUStressTester::calibrateKernel()
             outStream->flush();
             handleOutput(id);
         }
-        
-        cl::CommandQueue profCmdQueue(clContext, clDevice, CL_QUEUE_PROFILING_ENABLE);
         
         try
         {
@@ -694,6 +697,7 @@ void GPUStressTester::calibrateKernel()
                 bestKitersNum = curKitersNum;
                 bestPerf = currentPerf;
                 bestBandwidth = currentBandwidth;
+                bestKernelTime = currentTime;
             }
         }
         } // try/catch
@@ -714,6 +718,8 @@ void GPUStressTester::calibrateKernel()
                     " GB/s, Performance: " << bestPerf << " GFLOPS" << std::endl;
             handleOutput(id);
         }
+        
+        kernelTime = bestKernelTime;
     }
     else
     {
@@ -727,6 +733,90 @@ void GPUStressTester::calibrateKernel()
         return;
     kitersNum = bestKitersNum;
     buildKernel(kitersNum, blocksNum, true, false);
+    
+    if (profileKernelAfterBuilt)
+    {
+        if (useInputAndOutput)
+            clCmdQueue1.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0), bufItemsNum<<2,
+                    initialValues);
+        
+        clKernel.setArg(0, cl_uint(workSize));
+        clKernel.setArg(1, clBuffer1);
+        if (useInputAndOutput)
+            clKernel.setArg(2, clBuffer2);
+        else
+            clKernel.setArg(2, clBuffer1);
+        
+        if (usePolyWalker)
+        {
+            clKernel.setArg(3, examplePoly[0]);
+            clKernel.setArg(4, examplePoly[1]);
+            clKernel.setArg(5, examplePoly[2]);
+            clKernel.setArg(6, examplePoly[3]);
+            clKernel.setArg(7, examplePoly[4]);
+        }
+        
+        cl_ulong kernelTimes[5];
+        for (cxuint k = 0; k < 5; k++)
+        {
+            if (stopAllStressTestersByUser.load())
+                return; // if stopped by user
+            
+            if (!useInputAndOutput) // ensure always this same input data for kernel
+                clCmdQueue1.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0),
+                        bufItemsNum<<2, initialValues);
+            
+            cl::Event profEvent;
+            profCmdQueue.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
+                    cl::NDRange(workSize), cl::NDRange(groupSize), nullptr, &profEvent);
+            try
+            { profEvent.wait(); }
+            catch(const cl::Error& err)
+            {
+                if (err.err() != CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST)
+                    throw; // if other error
+                int eventStatus;
+                profEvent.getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
+                char strBuf[64];
+                snprintf(strBuf, 64, "Failed NDRangeKernel with code: %d", eventStatus);
+                throw MyException(strBuf);
+            }
+            
+            cl_ulong eventStartTime, eventEndTime;
+            profEvent.getProfilingInfo(CL_PROFILING_COMMAND_START, &eventStartTime);
+            profEvent.getProfilingInfo(CL_PROFILING_COMMAND_END, &eventEndTime);
+            kernelTimes[k] = eventEndTime-eventStartTime;
+        }
+        
+        // sort kernels times
+        for (cxuint k = 0; k < 5; k++)
+        {
+            for (cxuint l = k+1; l < 5; l++)
+                if (kernelTimes[k]>kernelTimes[l])
+                    std::swap(kernelTimes[k], kernelTimes[l]);
+            //*outStream << "SortedTime: " << kernelTimes[k] << std::endl;
+        }
+        
+        cxuint acceptedToAvg = 1;
+        for (; acceptedToAvg < 5; acceptedToAvg++)
+            if (double(kernelTimes[acceptedToAvg]-kernelTimes[0]) >
+                        double(kernelTimes[0])*0.07)
+                break;
+        //*outStream << "acceptedToAvg: " << acceptedToAvg << std::endl;
+        kernelTime = std::accumulate(kernelTimes, kernelTimes+acceptedToAvg, 0ULL)/acceptedToAvg;
+    }
+    
+    // determine how many iterations can be queued at same time
+    if (kernelTime != 0)
+        stepsPerWait = ::ceil(3e8 / double(kernelTime));
+    if (stepsPerWait < 2)
+        stepsPerWait = 2;
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        *outStream << "KernelTime: " << (double(kernelTime)*1e-9) <<
+                "s, itersPerWait: " << stepsPerWait << "\n" << std::endl;
+        handleOutput(id);
+    }
 }
 
 void GPUStressTester::printBuildLog()
@@ -837,6 +927,7 @@ try
             clKernel.setArg(2, clBuffer1);
         }
         
+        cxuint stepsAfterWait = 0;
         for (cxuint i = 0; i < passItersNum; i++)
         {
             if (stopAllStressTestersIfFail.load() || stopAllStressTestersByUser.load())
@@ -856,6 +947,26 @@ try
             }
             clCmdQueue1.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
                     cl::NDRange(workSize), cl::NDRange(groupSize), nullptr, &exec1Events[i]);
+            stepsAfterWait++;
+            if (stepsAfterWait >= stepsPerWait && i+((stepsPerWait+1)>>1) < passItersNum)
+            {   /* wait for ndrange kernel and ensure fluent working */
+                stepsAfterWait = 0;
+                try
+                { exec1Events[i].wait(); }
+                catch(const cl::Error& err)
+                {
+                    if (err.err() != CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST)
+                        throw; // if other error
+                    int eventStatus;
+                    exec1Events[i].getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
+                    if (eventStatus < 0)
+                    {
+                        char strBuf[64];
+                        snprintf(strBuf, 64, "Failed NDRangeKernel with code: %d", eventStatus);
+                        throw MyException(strBuf);
+                    }
+                }
+            }
         }
         if (stopAllStressTestersIfFail.load())
         {
@@ -932,6 +1043,7 @@ try
             clKernel.setArg(2, clBuffer3);
         }
         
+        stepsAfterWait = 0;
         for (cxuint i = 0; i < passItersNum; i++)
         {
             if (stopAllStressTestersIfFail.load() || stopAllStressTestersByUser.load())
@@ -951,6 +1063,26 @@ try
             }
             clCmdQueue1.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
                     cl::NDRange(workSize), cl::NDRange(groupSize), nullptr, &exec2Events[i]);
+            stepsAfterWait++;
+            if (stepsAfterWait >= stepsPerWait && i+((stepsPerWait+1)>>1) < passItersNum)
+            {   /* wait for ndrange kernel and ensure fluent working */
+                stepsAfterWait = 0;
+                try
+                { exec2Events[i].wait(); }
+                catch(const cl::Error& err)
+                {
+                    if (err.err() != CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST)
+                        throw; // if other error
+                    int eventStatus;
+                    exec2Events[i].getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
+                    if (eventStatus < 0)
+                    {
+                        char strBuf[64];
+                        snprintf(strBuf, 64, "Failed NDRangeKernel with code: %d", eventStatus);
+                        throw MyException(strBuf);
+                    }
+                }
+            }
         }
         if (stopAllStressTestersIfFail.load())
         {
