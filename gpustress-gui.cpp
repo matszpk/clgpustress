@@ -1363,13 +1363,15 @@ bool GUIApp::run()
     int ret = Fl::run();
     if (ret != 0)
     {
-#ifdef _WINDOWS
         std::ostringstream oss;
-        oss << "GUI App returns abnormally with code:" << ret << std::endl;
+        oss << "GUI App returns abnormally with code:" << ret;
+        oss.flush();
         std::string ossStr = oss.str();
+#ifdef _WINDOWS
         MessageBox(0, ossStr.c_str(), "Error", MB_ICONERROR);
 #else
-        std::cerr << "GUI App returns abnormally with code:" << ret << std::endl;
+        std::cerr << ossStr << std::endl;
+        fl_alert("%s", ossStr.c_str());
 #endif
         return false;
     }
@@ -1603,15 +1605,16 @@ int main(int argc, const char** argv)
     
     if (cmd < -1)
     {
-#ifdef _WINDOWS
         std::ostringstream oss;
         oss << poptBadOption(optsContext, POPT_BADOPTION_NOALIAS) << ": " <<
-            poptStrerror(cmd) << std::endl;
+            poptStrerror(cmd);
+        oss.flush();
         std::string ossStr = oss.str();
+#ifdef _WINDOWS
         MessageBox(0, ossStr.c_str(), "Error", MB_ICONERROR);
 #else
-        std::cerr << poptBadOption(optsContext, POPT_BADOPTION_NOALIAS) << ": " <<
-            poptStrerror(cmd) << std::endl;
+        std::cerr << ossStr << std::endl;
+        fl_alert("%s", ossStr.c_str());
 #endif
         poptFreeContext(optsContext);
         return 1;
@@ -1727,27 +1730,30 @@ int main(int argc, const char** argv)
     }
     catch(const cl::Error& error)
     {
-#ifdef _WINDOWS
         std::ostringstream oss;
         oss << "OpenCL error happened: " << error.what() <<
-                ", Code: " << error.err() << std::endl;
+                ", Code: " << error.err();
+        oss.flush();
         std::string ossStr = oss.str();
+#ifdef _WINDOWS
         MessageBox(0, ossStr.c_str(), "Error", MB_ICONERROR);
 #else
-        std::cerr << "OpenCL error happened: " << error.what() <<
-                ", Code: " << error.err() << std::endl;
+        std::cerr << ossStr << std::endl;
+        fl_alert("%s", ossStr.c_str());
 #endif
         retVal = 1;
     }
     catch(const std::exception& ex)
     {
-#ifdef _WINDOWS
         std::ostringstream oss;
-        oss << "Exception happened: " << ex.what() << std::endl;
+        oss << "Exception happened: " << ex.what();
+        oss.flush();
         std::string ossStr = oss.str();
+#ifdef _WINDOWS
         MessageBox(0, ossStr.c_str(), "Error", MB_ICONERROR);
 #else
-        std::cerr << "Exception happened: " << ex.what() << std::endl;
+        std::cerr << ossStr << std::endl;
+        fl_alert("%s", ossStr.c_str());
 #endif
         retVal = 1;
     }
