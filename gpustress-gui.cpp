@@ -35,6 +35,13 @@
 #include <cstring>
 #include <cstdlib>
 #include <climits>
+#include <chrono>
+#ifndef _WINDOWS
+#include <unistd.h>
+#else
+#include <io.h>
+#endif
+#include <csignal>
 #include <vector>
 #include <thread>
 #include <mutex>
@@ -117,6 +124,53 @@ static const poptOption optionsTable[] =
     { nullptr, 0, 0, nullptr, 0 }
 };
 
+class GUIApp;
+
+static const cxuint secondsToTerminate = 2;
+
+static GUIApp* guiapp = nullptr;
+static bool killerInitiated = false;
+
+#ifdef _POSIX_SOURCE
+static struct sigaction oldINTHandler;
+static struct sigaction oldTERMHandler;
+#else
+#  ifdef _WINDOWS
+typedef void (*sighandler_t)(int);
+static sighandler_t oldINTHandler;
+#  endif
+static sighandler_t oldTERMHandler;
+#endif
+
+#ifdef _POSIX_SOURCE
+static void installTerminate(int signo, struct sigaction* old, sighandler_t f)
+{
+    struct sigaction sanew;
+    sanew.sa_handler = f;
+    sanew.sa_flags = 0;
+    sigemptyset(&sanew.sa_mask);
+    sigaction(signo, &sanew, old);
+#else
+static void installTerminate(int signo, sighandler_t* old, sighandler_t f)
+{
+    if (old != nullptr)
+        *old = signal(signo, f);
+    else // if not specified
+        signal(signo, f);
+#endif
+}
+
+#ifdef _POSIX_SOURCE
+static void uninstallTerminate(int signo, const struct sigaction& old)
+{
+    sigaction(signo, &old, nullptr);
+#else
+static void uninstallTerminate(int signo, sighandler_t old)
+{
+    signal(signo, old);
+#endif
+}
+
 static std::vector<std::string> testTypeLabelsTable;
 
 static std::string escapeForFlTree(const std::string& s)
@@ -195,6 +249,8 @@ private:
         GUIApp* guiapp;
     };
     
+    bool isAppExitCalled;
+    bool doExitAfterStop;
     bool testFinishedWithException;
     
     static void handleOutput(void* data, cxuint id);
@@ -223,7 +279,7 @@ public:
     
     void setTabToTestLogs();
     
-    void cleanupGUI();
+    void close();
 };
 
 /*
@@ -1279,6 +1335,8 @@ GUIApp::GUIApp(const std::vector<cl::Device>& clDevices,
 try
         : mainWin(nullptr), alertWin(nullptr)
 {
+    doExitAfterStop = false;
+    isAppExitCalled = false;
     doNotSendMessages.store(false);
     mainStressThread = nullptr;
     
@@ -1345,11 +1403,11 @@ catch(...)
     throw;
 }
 
-/* this destructor should no be used in this APP!!! (for safe and fast exiting) */
 GUIApp::~GUIApp()
 {
     if (mainStressThread != nullptr)
     {
+        doNotSendMessages.store(true);
         stopAllStressTestersByUser.store(true);
         mainStressThread->join();
     }
@@ -1413,16 +1471,24 @@ void GUIApp::handleOutputAwake(void* data)
 void GUIApp::stressEndAwake(void* data)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
-    guiapp->deviceChoiceGrp->activateView();
-    guiapp->testConfigsGrp->activateView();
-    guiapp->startStopButton->activate();
-    guiapp->startStopButton->label("START");
-    guiapp->startStopButton->tooltip("Start stress test for all devices");
-    guiapp->exitAllFailsButton->activate();
+    if (!guiapp->doExitAfterStop)
+    {   // we exiting - do not activate disabled elements
+        guiapp->deviceChoiceGrp->activateView();
+        guiapp->testConfigsGrp->activateView();
+        guiapp->startStopButton->activate();
+        guiapp->startStopButton->label("START");
+        guiapp->startStopButton->tooltip("Start stress test for all devices");
+        guiapp->exitAllFailsButton->activate();
+    }
     if (guiapp->mainStressThread != nullptr)
         guiapp->mainStressThread->join();
     delete guiapp->mainStressThread;
     guiapp->mainStressThread = nullptr;
+    if (guiapp->doExitAfterStop)
+    {
+        guiapp->mainWin->hide();
+        return;
+    }
     if (guiapp->testFinishedWithException)
     {
         guiapp->setTabToTestLogs();
@@ -1573,7 +1639,7 @@ void GUIApp::runStress()
         logOutputStream << "Unknown exception happened" << std::endl;
         handleOutput(this, UINT_MAX);
     }
-
+    
     if (!doNotSendMessages.load())
         while (Fl::awake(&GUIApp::stressEndAwake, this) != 0);
 }
@@ -1582,6 +1648,70 @@ void GUIApp::dismissAlertCalled(Fl_Widget* widget, void* data)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
     guiapp->alertWin->hide();
+}
+
+static void abnormalTerminate(int signo)
+{
+#ifdef _WINDOWS
+    raise(SIGABRT);
+#else
+    ::write(2, "Abnormal exiting...\n", 20);
+    raise(SIGKILL);
+#endif
+}
+
+#ifdef _WINDOWS
+static BOOL queueTimerCreated = FALSE;
+static HANDLE queueTimer;
+
+static VOID CALLBACK abnormalTimerCallback(PVOID lpParameter, BOOLEAN TimerOrWaitFired)
+{
+    if (queueTimerCreated)
+        DeleteTimerQueueTimer(nullptr, queueTimer, nullptr);
+    abnormalTerminate(SIGTERM);
+}
+#endif
+
+static void abnormalTerminateThreadFunc(int signo)
+{
+    try
+    { std::this_thread::sleep_for(std::chrono::seconds(secondsToTerminate)); }
+    catch(...)
+    { }
+    abnormalTerminate(SIGTERM);
+}
+
+static void initiateKiller()
+{
+    if (!killerInitiated)
+    {
+        std::thread* th1 = nullptr;
+        try
+        { th1 = new std::thread(abnormalTerminateThreadFunc, SIGTERM); }
+        catch(...)
+        { }
+        if (th1 != nullptr)
+        {
+            try
+            { th1->detach(); }
+            catch(...)
+            { }
+            killerInitiated = true;
+        }
+        else
+        {   /* otherwise we try alarm method */
+#ifdef _WINDOWS
+            queueTimerCreated = CreateTimerQueueTimer(&queueTimer, nullptr,
+                    abnormalTimerCallback, nullptr, secondsToTerminate*1000U,
+                    0, WT_EXECUTEDEFAULT);
+            killerInitiated = queueTimerCreated;
+#else
+            installTerminate(SIGALRM, nullptr, abnormalTerminate);
+            alarm(secondsToTerminate);
+            killerInitiated = true;
+#endif
+        }
+    }
 }
 
 void GUIApp::mainWinExitCalled(Fl_Widget* widget, void* data)
@@ -1593,7 +1723,26 @@ void GUIApp::mainWinExitCalled(Fl_Widget* widget, void* data)
             startStopCalled(guiapp->startStopButton, guiapp);
         return; // ignore escape key
     }
-    widget->hide();
+    
+    if (guiapp->isAppExitCalled)
+    {
+#ifdef _WINDOWS
+        raise(SIGABRT);
+#else
+        ::write(2, "Abnormal exiting...\n", 20);
+        raise(SIGKILL);
+#endif        
+    }
+    guiapp->isAppExitCalled = true;
+    // normal exit
+    if (guiapp->mainStressThread != nullptr)
+    {
+        guiapp->doExitAfterStop = true;
+        initiateKiller();
+        startStopCalled(guiapp->startStopButton, guiapp);
+    }
+    else // we normally hide window
+        widget->hide();
 }
 
 void GUIApp::setTabToTestLogs()
@@ -1601,14 +1750,55 @@ void GUIApp::setTabToTestLogs()
     mainTabs->value(testLogsGrp);
 }
 
-void GUIApp::cleanupGUI()
-{   /* force do not send any messages to application because GUI will be deleted */
-    doNotSendMessages.store(true);
-    delete mainWin;
-    mainWin = nullptr;
-    delete alertWin;
-    alertWin = nullptr;
+void GUIApp::close()
+{
+    if (guiapp->isAppExitCalled)
+    {
+#ifdef _WINDOWS
+        raise(SIGABRT);
+#else
+        ::write(2, "Abnormal exiting...\n", 20);
+        raise(SIGKILL);
+#endif        
+    }
+    isAppExitCalled = true;
+    // normal exit
+    if (mainStressThread != nullptr)
+    {
+        doExitAfterStop = true;
+        startStopCalled(startStopButton, this);
+    }
+    else // we normally hide window
+    {
+        doNotSendMessages.store(true);
+        mainWin->hide();
+    }
 }
+
+static void normalTerminate(int signo)
+{
+    uninstallTerminate(SIGTERM, oldTERMHandler);
+#ifndef _WINDOWS
+    uninstallTerminate(SIGINT, oldINTHandler);
+    ::write(2, "Normal exiting...\n", 18);
+#endif
+    initiateKiller();
+    if (guiapp != nullptr)
+        guiapp->close();
+}
+
+#ifdef _WINDOWS
+static BOOL normalTerminateWin(DWORD ctrltype)
+{
+    if (ctrltype == CTRL_C_EVENT || ctrltype == CTRL_BREAK_EVENT)
+    {
+        normalTerminate(SIGINT);
+        SetConsoleCtrlHandler(normalTerminateWin, FALSE);
+        return TRUE;
+    }
+    return FALSE;
+}
+#endif
 
 /* main program */
 
@@ -1703,7 +1893,6 @@ int main(int argc, const char** argv)
     
     int retVal = 0;
     
-    GUIApp* guiapp = nullptr;
     std::vector<GPUStressConfig> gpuStressConfigs;
     try
     {
@@ -1745,14 +1934,22 @@ int main(int argc, const char** argv)
                     builtinKernels, inputAndOutputs);
         }
         
+#ifdef _WINDOWS
+        SetConsoleCtrlHandler(normalTerminateWin, TRUE);
+#else
+        installTerminate(SIGINT, &oldINTHandler, normalTerminate);
+#endif
+        installTerminate(SIGTERM, &oldTERMHandler, normalTerminate);
+        
         /* run window */
         guiapp = new GUIApp(choosenClDevices, gpuStressConfigs);
         if (!guiapp->run())
             retVal = 1;
-        guiapp->cleanupGUI();
     }
     catch(const cl::Error& error)
     {
+        delete guiapp;
+        guiapp = nullptr;
         std::ostringstream oss;
         oss << "OpenCL error happened: " << error.what() <<
                 ", Code: " << error.err();
@@ -1766,6 +1963,8 @@ int main(int argc, const char** argv)
     }
     catch(const std::exception& ex)
     {
+        delete guiapp;
+        guiapp = nullptr;
         std::ostringstream oss;
         oss << "Exception happened: " << ex.what();
         oss.flush();
@@ -1776,6 +1975,18 @@ int main(int argc, const char** argv)
         fl_alert("%s", ossStr.c_str());
         retVal = 1;
     }
+    catch(...)
+    {
+        delete guiapp;
+        guiapp = nullptr;
+        const char* cstr = "Unknown exception happened";
+#ifndef _WINDOWS
+        std::cerr << cstr << std::endl;
+#endif
+        fl_alert(cstr);
+        retVal = 1;
+    }
+    delete guiapp;
     
     poptFreeContext(optsContext);
     return retVal;

@@ -217,21 +217,24 @@ static void abnormalTerminate(int signo)
 #endif
 }
 
+static const cxuint secondsToTerminate = 2;
+
 static void abnormalTerminateThreadFunc(int signo)
 {
     try
-    { std::this_thread::sleep_for(std::chrono::seconds(5)); }
+    { std::this_thread::sleep_for(std::chrono::seconds(secondsToTerminate)); }
     catch(...)
     { }
     abnormalTerminate(SIGTERM);
 }
 
 #ifdef _WINDOWS
-static HANDLE queueTimer = NULL;
+static BOOL queueTimerCreated = FALSE;
+static HANDLE queueTimer;
 
 static VOID CALLBACK abnormalTimerCallback(PVOID lpParameter, BOOLEAN TimerOrWaitFired)
 {
-    if (queueTimer != NULL)
+    if (queueTimerCreated)
         DeleteTimerQueueTimer(nullptr, queueTimer, nullptr);
     abnormalTerminate(SIGTERM);
 }
@@ -259,28 +262,16 @@ static void normalTerminate(int signo)
     else
     {   /* otherwise we try alarm method */
 #ifdef _WINDOWS
-        CreateTimerQueueTimer(&queueTimer, nullptr, abnormalTimerCallback, nullptr,
-                              5000, 0, WT_EXECUTEDEFAULT);
+        queueTimerCreated = CreateTimerQueueTimer(&queueTimer, nullptr,
+                abnormalTimerCallback, nullptr, secondsToTerminate*1000U,
+                0, WT_EXECUTEDEFAULT);
 #else
         installTerminate(SIGALRM, nullptr, abnormalTerminate);
-        alarm(5);
+        alarm(secondsToTerminate);
 #endif
     }
     stopAllStressTestersByUser.store(true);
 }
-
-#ifdef _WINDOWS
-static BOOL normalTerminateWin(DWORD ctrltype)
-{
-    if (ctrltype == CTRL_C_EVENT || ctrltype == CTRL_BREAK_EVENT)
-    {
-        normalTerminate(SIGINT);
-        SetConsoleCtrlHandler(normalTerminateWin, FALSE);
-        return TRUE;
-    }
-    return FALSE;
-}
-#endif
 
 int main(int argc, const char** argv)
 {
