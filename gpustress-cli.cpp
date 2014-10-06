@@ -274,7 +274,7 @@ static void normalTerminate(int signo)
 }
 
 #ifdef _WINDOWS
-static BOOL normalTerminateWin(DWORD ctrltype)
+static BOOL WINAPI normalTerminateWin(DWORD ctrltype)
 {
     if (ctrltype == CTRL_C_EVENT || ctrltype == CTRL_BREAK_EVENT)
     {
