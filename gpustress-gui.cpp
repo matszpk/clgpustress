@@ -1648,7 +1648,7 @@ static void abnormalTerminate(int signo)
 #ifdef _WINDOWS
     raise(SIGABRT);
 #else
-    ::write(2, "Abnormal exiting...\n", 20);
+    if (::write(2, "Abnormal exiting...\n", 20));
     raise(SIGKILL);
 #endif
 }
@@ -1722,7 +1722,7 @@ void GUIApp::mainWinExitCalled(Fl_Widget* widget, void* data)
 #ifdef _WINDOWS
         raise(SIGABRT);
 #else
-        ::write(2, "Abnormal exiting...\n", 20);
+        if (::write(2, "Abnormal exiting...\n", 20));
         raise(SIGKILL);
 #endif        
     }
@@ -1750,7 +1750,7 @@ void GUIApp::close()
 #ifdef _WINDOWS
         raise(SIGABRT);
 #else
-        ::write(2, "Abnormal exiting...\n", 20);
+        if (::write(2, "Abnormal exiting...\n", 20));
         raise(SIGKILL);
 #endif        
     }
@@ -1770,7 +1770,7 @@ static void normalTerminate(int signo)
     uninstallTerminate(SIGTERM, oldTERMHandler);
 #ifndef _WINDOWS
     uninstallTerminate(SIGINT, oldINTHandler);
-    ::write(2, "Normal exiting...\n", 18);
+    if (::write(2, "Normal exiting...\n", 18));
 #endif
     initiateKiller();
     if (guiapp != nullptr)

@@ -209,7 +209,7 @@ static void uninstallTerminate(int signo, sighandler_t old)
 
 static void abnormalTerminate(int signo)
 {
-    ::write(2, "Abnormal exiting...\n", 20);
+    if (::write(2, "Abnormal exiting...\n", 20));
 #ifdef _WINDOWS
     raise(SIGABRT);
 #else
@@ -246,7 +246,7 @@ static void normalTerminate(int signo)
     uninstallTerminate(SIGINT, oldINTHandler);
 #endif
     uninstallTerminate(SIGTERM, oldTERMHandler);
-    ::write(2, "Normal exiting...\n", 18);
+    if (::write(2, "Normal exiting...\n", 18));
     std::thread* th1 = nullptr;
     try
     { th1 = new std::thread(abnormalTerminateThreadFunc, SIGTERM); }
