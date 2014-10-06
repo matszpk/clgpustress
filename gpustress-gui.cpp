@@ -1470,6 +1470,7 @@ void GUIApp::runStress()
     try
     {
         cxuint j = 0;
+        bool ifExitingAtInit = false;
         for (cxuint i = 0; i < num; i++)
             if (deviceChoiceGrp->isClDeviceEnabled(i))
             {
@@ -1479,14 +1480,17 @@ void GUIApp::runStress()
                 
                 if (!stressTester->isInitialized())
                 {
+                    ifExitingAtInit = true;
                     delete stressTester;
                     break;
                 }
                 gpuStressTesters.push_back(stressTester);
                 j++;
             }
-        for (GPUStressTester* tester: gpuStressTesters)
-            testerThreads.push_back(new std::thread(&GPUStressTester::runTest, tester));
+        
+        if (!ifExitingAtInit)
+            for (GPUStressTester* tester: gpuStressTesters)
+                testerThreads.push_back(new std::thread(&GPUStressTester::runTest, tester));
     }
     catch(const cl::Error& err)
     {
@@ -1630,7 +1634,9 @@ int main(int argc, const char** argv)
             poptStrerror(cmd);
         oss.flush();
         std::string ossStr = oss.str();
+#ifndef _WINDOWS
         std::cerr << ossStr << std::endl;
+#endif
         fl_alert("%s", ossStr.c_str());
         poptFreeContext(optsContext);
         return 1;
@@ -1752,7 +1758,9 @@ int main(int argc, const char** argv)
                 ", Code: " << error.err();
         oss.flush();
         std::string ossStr = oss.str();
+#ifndef _WINDOWS
         std::cerr << ossStr << std::endl;
+#endif
         fl_alert("%s", ossStr.c_str());
         retVal = 1;
     }
@@ -1762,7 +1770,9 @@ int main(int argc, const char** argv)
         oss << "Exception happened: " << ex.what();
         oss.flush();
         std::string ossStr = oss.str();
+#ifndef _WINDOWS
         std::cerr << ossStr << std::endl;
+#endif
         fl_alert("%s", ossStr.c_str());
         retVal = 1;
     }

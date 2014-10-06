@@ -28,6 +28,14 @@
 #include <string>
 #include <vector>
 #include <thread>
+#include <chrono>
+#ifndef _WINDOWS
+#include <unistd.h>
+#else
+#include <windows.h>
+#include <io.h>
+#endif
+#include <csignal>
 #include <mutex>
 #include <popt.h>
 #include <CL/cl.hpp>
@@ -159,13 +167,126 @@ static void listChoosenCLDevices(const std::vector<cl::Device>& list)
     std::cout.flush();
 }
 
+#ifdef _POSIX_SOURCE
+static struct sigaction oldINTHandler;
+static struct sigaction oldTERMHandler;
+#else
+#  ifdef _WINDOWS
+typedef void (*sighandler_t)(int);
+static sighandler_t oldINTHandler;
+#  endif
+static sighandler_t oldTERMHandler;
+#endif
+
+#ifdef _POSIX_SOURCE
+static void installTerminate(int signo, struct sigaction* old, sighandler_t f)
+{
+    struct sigaction sanew;
+    sanew.sa_handler = f;
+    sanew.sa_flags = 0;
+    sigemptyset(&sanew.sa_mask);
+    sigaction(signo, &sanew, old);
+#else
+static void installTerminate(int signo, sighandler_t* old, sighandler_t f)
+{
+    if (old != nullptr)
+        *old = signal(signo, f);
+    else // if not specified
+        signal(signo, f);
+#endif
+}
+
+#ifdef _POSIX_SOURCE
+static void uninstallTerminate(int signo, const struct sigaction& old)
+{
+    sigaction(signo, &old, nullptr);
+#else
+static void uninstallTerminate(int signo, sighandler_t old)
+{
+    signal(signo, old);
+#endif
+}
+
+static void abnormalTerminate(int signo)
+{
+    ::write(2, "Abnormal exiting...\n", 20);
+#ifdef _WINDOWS
+    raise(SIGABRT);
+#else
+    raise(SIGKILL);
+#endif
+}
+
+static void abnormalTerminateThreadFunc(int signo)
+{
+    try
+    { std::this_thread::sleep_for(std::chrono::seconds(5)); }
+    catch(...)
+    { }
+    abnormalTerminate(SIGTERM);
+}
+
+#ifdef _WINDOWS
+static HANDLE queueTimer = NULL;
+
+static VOID CALLBACK abnormalTimerCallback(PVOID lpParameter, BOOLEAN TimerOrWaitFired)
+{
+    if (queueTimer != NULL)
+        DeleteTimerQueueTimer(nullptr, queueTimer, nullptr);
+    abnormalTerminate(SIGTERM);
+}
+#endif
+
+static void normalTerminate(int signo)
+{
+#ifndef _WINDOWS
+    uninstallTerminate(SIGINT, oldINTHandler);
+#endif
+    uninstallTerminate(SIGTERM, oldTERMHandler);
+    ::write(2, "Normal exiting...\n", 18);
+    std::thread* th1 = nullptr;
+    try
+    { th1 = new std::thread(abnormalTerminateThreadFunc, SIGTERM); }
+    catch(...)
+    { }
+    if (th1 != nullptr)
+    {
+        try
+        { th1->detach(); }
+        catch(...)
+        { }
+    }
+    else
+    {   /* otherwise we try alarm method */
+#ifdef _WINDOWS
+        CreateTimerQueueTimer(&queueTimer, nullptr, abnormalTimerCallback, nullptr,
+                              5000, 0, WT_EXECUTEDEFAULT);
+#else
+        installTerminate(SIGALRM, nullptr, abnormalTerminate);
+        alarm(5);
+#endif
+    }
+    stopAllStressTestersByUser.store(true);
+}
+
+#ifdef _WINDOWS
+static BOOL normalTerminateWin(DWORD ctrltype)
+{
+    if (ctrltype == CTRL_C_EVENT || ctrltype == CTRL_BREAK_EVENT)
+    {
+        normalTerminate(SIGINT);
+        SetConsoleCtrlHandler(normalTerminateWin, FALSE);
+        return TRUE;
+    }
+    return FALSE;
+}
+#endif
+
 int main(int argc, const char** argv)
 {
     int cmd;
     poptContext optsContext;
-    
     installOutputHandler(&std::cout, &std::cerr);
-    
     optsContext = poptGetContext("gpustress-cli", argc, argv, optionsTable, 0);
     
     bool globalInputAndOutput = false;
@@ -287,6 +408,14 @@ int main(int argc, const char** argv)
         if (dontWait==0)
             std::this_thread::sleep_for(std::chrono::milliseconds(8000));
         
+#ifdef _WINDOWS
+        SetConsoleCtrlHandler(normalTerminateWin, TRUE);
+#else
+        installTerminate(SIGINT, &oldINTHandler, normalTerminate);
+#endif
+        installTerminate(SIGTERM, &oldTERMHandler, normalTerminate);
+        
+        bool ifExitingAtInit = false;
         for (size_t i = 0; i < choosenCLDevices.size(); i++)
         {
             cl::Device& clDevice = choosenCLDevices[i];
@@ -294,15 +423,16 @@ int main(int argc, const char** argv)
                         gpuStressConfigs[i]);
             if (!stressTester->isInitialized())
             {
+                ifExitingAtInit = true;
                 delete stressTester;
                 break;
             }
             gpuStressTesters.push_back(stressTester);
         }
-        
-        for (size_t i = 0; i < choosenCLDevices.size(); i++)
-            testerThreads.push_back(new std::thread(
-                    &GPUStressTester::runTest, gpuStressTesters[i]));
+        if (!ifExitingAtInit)
+            for (size_t i = 0; i < choosenCLDevices.size(); i++)
+                testerThreads.push_back(new std::thread(
+                        &GPUStressTester::runTest, gpuStressTesters[i]));
     }
     catch(const cl::Error& error)
     {
