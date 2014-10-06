@@ -54,6 +54,8 @@ By default program terminates stress testing when any device will fail. You can 
 ### Software requirements:
 
 - Windows or Linux operating system in x86 or x86-64 version (for binaries)
+- Windows 7 or later (recommended for binaries)
+- Linux with libstdc++ from GCC 4.8 or later (recommended for binaries)
 - OpenCL 1.1 or later (from GPU vendor drivers or other compatible)
 - OpenCL 1.1 C++ binding later (for compilation)
 - popt library (only for Linux version or for compilation)
