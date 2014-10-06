@@ -273,6 +273,19 @@ static void normalTerminate(int signo)
     stopAllStressTestersByUser.store(true);
 }
 
+#ifdef _WINDOWS
+static BOOL normalTerminateWin(DWORD ctrltype)
+{
+    if (ctrltype == CTRL_C_EVENT || ctrltype == CTRL_BREAK_EVENT)
+    {
+        normalTerminate(SIGINT);
+        SetConsoleCtrlHandler(normalTerminateWin, FALSE);
+        return TRUE;
+    }
+    return FALSE;
+}
+#endif
+
 int main(int argc, const char** argv)
 {
     int cmd;

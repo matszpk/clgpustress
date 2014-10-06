@@ -93,6 +93,14 @@ By default program uses single buffer for input and output.
 
 Program needs also host memory: 192 * blocksNum * workSize bytes for buffers.
 
+### Exiting from program
+
+Versions earlier than 0.0.8.6 tries to immediately exit (sometimes improperly).
+Program since version 0.0.8.6 waits 2 seconds for cleaning up resources and
+after tries to kill itself.
+New version can be killed immediately after second trial of exit from program
+(by using CTRL+C or by closing window).
+
 ### Usage
 
 Examples of usage:

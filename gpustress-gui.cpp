@@ -38,8 +38,6 @@
 #include <chrono>
 #ifndef _WINDOWS
 #include <unistd.h>
-#else
-#include <io.h>
 #endif
 #include <csignal>
 #include <vector>
