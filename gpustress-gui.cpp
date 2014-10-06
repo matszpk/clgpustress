@@ -74,7 +74,7 @@
 #  define SIZE_T_SPEC "%zu"
 #endif
 
-#define PROGRAM_VERSION "0.0.8.5"
+#define PROGRAM_VERSION "0.0.8.6"
 
 extern const char* testDescsTable[];
 
@@ -239,7 +239,6 @@ private:
     
     std::ostringstream logOutputStream;
     
-    std::atomic<bool> doNotSendMessages;
     std::thread* mainStressThread;
     
     struct HandleOutputData
@@ -1337,7 +1336,6 @@ try
 {
     doExitAfterStop = false;
     isAppExitCalled = false;
-    doNotSendMessages.store(false);
     mainStressThread = nullptr;
     
     alertWin = new Fl_Window(600, 150, "GPUStress Caution!");
@@ -1407,7 +1405,6 @@ GUIApp::~GUIApp()
 {
     if (mainStressThread != nullptr)
     {
-        doNotSendMessages.store(true);
         stopAllStressTestersByUser.store(true);
         mainStressThread->join();
     }
@@ -1457,8 +1454,7 @@ void GUIApp::handleOutput(void* data, cxuint id)
     odata->textBufferIndex = (id != UINT_MAX) ? id+1 : 0;
     guiapp->logOutputStream.str(std::string()); // clear all
     // awake
-    if (!guiapp->doNotSendMessages.load())
-        while (Fl::awake(&GUIApp::handleOutputAwake, odata) != 0);
+    while (Fl::awake(&GUIApp::handleOutputAwake, odata) != 0);
 }
 
 void GUIApp::handleOutputAwake(void* data)
@@ -1640,8 +1636,7 @@ void GUIApp::runStress()
         handleOutput(this, UINT_MAX);
     }
     
-    if (!doNotSendMessages.load())
-        while (Fl::awake(&GUIApp::stressEndAwake, this) != 0);
+    while (Fl::awake(&GUIApp::stressEndAwake, this) != 0);
 }
 
 void GUIApp::dismissAlertCalled(Fl_Widget* widget, void* data)
@@ -1769,10 +1764,7 @@ void GUIApp::close()
         startStopCalled(startStopButton, this);
     }
     else // we normally hide window
-    {
-        doNotSendMessages.store(true);
         mainWin->hide();
-    }
 }
 
 static void normalTerminate(int signo)

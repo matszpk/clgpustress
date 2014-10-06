@@ -818,6 +818,20 @@ void GPUStressTester::calibrateKernel()
         std::lock_guard<std::mutex> l(stdOutputMutex);
         *outStream << "KernelTime: " << (double(kernelTime)*1e-9) <<
                 "s, itersPerWait: " << stepsPerWait << "\n" << std::endl;
+        if (kernelTime >= 4000000000ULL)
+        {
+            cl_device_type devType;
+            clDevice.getInfo(CL_DEVICE_TYPE, &devType);
+            if ((devType & CL_DEVICE_TYPE_CPU) == 0)
+                *outStream <<
+                    "WARNING! KERNEL TIME FOR NON-CPU DEVICE IS VERY LONG!\n"
+                    "YOU MAY HAVE PROBLEMS WITH EXITING FROM APPLICATION!\n" << std::endl;
+            else
+                *outStream <<
+                    "Warning: Kernel time for CPU is long! You may have problems with\n"
+                    "stopping test. You can exit from application immediately when test\n"
+                    "can't be stopped\n" << std::endl;
+        }
         handleOutput(id);
     }
 }

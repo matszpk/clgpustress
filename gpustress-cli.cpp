@@ -41,7 +41,7 @@
 #include <CL/cl.hpp>
 #include "gpustress-core.h"
 
-#define PROGRAM_VERSION "0.0.8.5"
+#define PROGRAM_VERSION "0.0.8.6"
 
 extern const char* testDescsTable[];
 
@@ -436,6 +436,12 @@ int main(int argc, const char** argv)
     {
         std::lock_guard<std::mutex> l(stdOutputMutex);
         *errStream << "Exception happened: " << ex.what() << std::endl;
+        retVal = 1;
+    }
+    catch(...)
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        *errStream << "Unknown exception happened" << std::endl;
         retVal = 1;
     }
     // clean up

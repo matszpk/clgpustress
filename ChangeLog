@@ -1,5 +1,10 @@
 List of the changes:
 
+Version 0.0.8.6 (06.10.2014):
+- fixed exiting from GUI app when test is running (now will be safe)
+- added signal handlers and autokillers (both CLI and GUI)
+- added warning about long kernel time
+
 Version 0.0.8.5 (05.10.2014):
 - improved and fixed test logging in GUI version
 - added support for Windows GUI (error handling)
