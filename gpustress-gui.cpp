@@ -1977,6 +1977,7 @@ int main(int argc, const char** argv)
         retVal = 1;
     }
     delete guiapp;
+    guiapp = nullptr;
     
     poptFreeContext(optsContext);
     return retVal;
