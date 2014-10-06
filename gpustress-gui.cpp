@@ -38,6 +38,7 @@
 #include <vector>
 #include <thread>
 #include <mutex>
+#include <atomic>
 #include <popt.h>
 #include <CL/cl.hpp>
 
@@ -184,6 +185,7 @@ private:
     
     std::ostringstream logOutputStream;
     
+    std::atomic<bool> doNotSendMessages;
     std::thread* mainStressThread;
     
     struct HandleOutputData
@@ -220,6 +222,8 @@ public:
     void runStress();
     
     void setTabToTestLogs();
+    
+    void cleanupGUI();
 };
 
 /*
@@ -1275,6 +1279,7 @@ GUIApp::GUIApp(const std::vector<cl::Device>& clDevices,
 try
         : mainWin(nullptr), alertWin(nullptr)
 {
+    doNotSendMessages.store(false);
     mainStressThread = nullptr;
     
     alertWin = new Fl_Window(600, 150, "GPUStress Caution!");
@@ -1340,8 +1345,14 @@ catch(...)
     throw;
 }
 
+/* this destructor should no be used in this APP!!! (for safe and fast exiting) */
 GUIApp::~GUIApp()
 {
+    if (mainStressThread != nullptr)
+    {
+        stopAllStressTestersByUser.store(true);
+        mainStressThread->join();
+    }
     delete mainWin;
     delete alertWin;
 }
@@ -1388,7 +1399,8 @@ void GUIApp::handleOutput(void* data, cxuint id)
     odata->textBufferIndex = (id != UINT_MAX) ? id+1 : 0;
     guiapp->logOutputStream.str(std::string()); // clear all
     // awake
-    while (Fl::awake(&GUIApp::handleOutputAwake, odata) != 0);
+    if (!guiapp->doNotSendMessages.load())
+        while (Fl::awake(&GUIApp::handleOutputAwake, odata) != 0);
 }
 
 void GUIApp::handleOutputAwake(void* data)
@@ -1542,7 +1554,6 @@ void GUIApp::runStress()
         logOutputStream << "OpenCL error happened: " << err.what() <<
                     ", Code: " << err.err() << std::endl;
         handleOutput(this, UINT_MAX);
-        while (Fl::awake(&GUIApp::stressEndAwake, this) != 0);
     }
     catch(const std::exception& ex)
     {
@@ -1550,7 +1561,6 @@ void GUIApp::runStress()
         std::lock_guard<std::mutex> l(stdOutputMutex);
         logOutputStream << "Exception happened: " << ex.what() << std::endl;
         handleOutput(this, UINT_MAX);
-        while (Fl::awake(&GUIApp::stressEndAwake, this) != 0);
     }
     catch(...)
     {
@@ -1559,8 +1569,9 @@ void GUIApp::runStress()
         logOutputStream << "Unknown exception happened" << std::endl;
         handleOutput(this, UINT_MAX);
     }
-    
-    while (Fl::awake(&GUIApp::stressEndAwake, this) != 0);
+
+    if (!doNotSendMessages.load())
+        while (Fl::awake(&GUIApp::stressEndAwake, this) != 0);
 }
 
 void GUIApp::dismissAlertCalled(Fl_Widget* widget, void* data)
@@ -1584,6 +1595,15 @@ void GUIApp::mainWinExitCalled(Fl_Widget* widget, void* data)
 void GUIApp::setTabToTestLogs()
 {
     mainTabs->value(testLogsGrp);
+}
+
+void GUIApp::cleanupGUI()
+{   /* force do not send any messages to application because GUI will be deleted */
+    doNotSendMessages.store(true);
+    delete mainWin;
+    mainWin = nullptr;
+    delete alertWin;
+    alertWin = nullptr;
 }
 
 /* main program */
@@ -1723,6 +1743,7 @@ int main(int argc, const char** argv)
         guiapp = new GUIApp(choosenClDevices, gpuStressConfigs);
         if (!guiapp->run())
             retVal = 1;
+        guiapp->cleanupGUI();
     }
     catch(const cl::Error& error)
     {
