@@ -1581,7 +1581,6 @@ void GUIApp::runStress()
         handleOutput(this, UINT_MAX);
     }
     
-    while(1);
     while (Fl::awake(&GUIApp::stressEndAwake, this) != 0);
 }
 
