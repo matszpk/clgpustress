@@ -34,6 +34,7 @@
 #include <map>
 #include <cstring>
 #include <cstdlib>
+#include <csignal>
 #include <climits>
 #include <vector>
 #include <thread>
@@ -1580,6 +1581,7 @@ void GUIApp::runStress()
         handleOutput(this, UINT_MAX);
     }
     
+    while(1);
     while (Fl::awake(&GUIApp::stressEndAwake, this) != 0);
 }
 
@@ -1600,7 +1602,10 @@ void GUIApp::mainWinExitCalled(Fl_Widget* widget, void* data)
     }
     
     if (guiapp->isAppExitCalled)
+    {
+        ::raise(SIGTERM);
         return;
+    }
     guiapp->isAppExitCalled = true;
     // normal exit
     if (guiapp->mainStressThread != nullptr)
