@@ -165,6 +165,19 @@ class DeviceChoiceGroup;
 class TestConfigsGroup;
 class TestLogsGroup;
 
+class MyTextDisplay: public Fl_Text_Display
+{
+public:
+    MyTextDisplay(int X, int Y, int W, int H, const char* l = 0);
+    
+    int isEndAtVScroll() const
+    { return mVScrollBar->value()>=mVScrollBar->maximum(); }
+};
+
+MyTextDisplay::MyTextDisplay(int X, int Y, int W, int H, const char* l)
+        : Fl_Text_Display(X, Y, W, H, l)
+{ }
+
 /*
  * main GUI app class
  */
@@ -1034,7 +1047,7 @@ private:
     
     std::vector<Fl_Text_Buffer*> textBuffers;
     
-    Fl_Text_Display* logOutput;
+    MyTextDisplay* logOutput;
     
     Fl_Button* saveLogButton;
     Fl_Button* clearLogButton;
@@ -1069,7 +1082,7 @@ try
     deviceChoice->tooltip("Choose device for which log messages will be displayed");
     deviceChoice->callback(&TestLogsGroup::selectedDeviceChanged, this);
     
-    logOutput = new Fl_Text_Display(10, 60, 740, 300);
+    logOutput = new MyTextDisplay(10, 60, 740, 300);
     logOutput->textfont(FL_COURIER);
     logOutput->textsize(12);
     
@@ -1232,7 +1245,11 @@ static void appendToTextBuffetWithLimit(Fl_Text_Buffer* textBuffer,
             size_t pos = textLen + newLogs.size() - maxLogLength;
             size_t startPos = textBuffer->line_start(pos);
             if (startPos != pos)
-                pos = textBuffer->line_end(pos)+1;
+            {
+                pos = textBuffer->line_end(pos);
+                if (pos < textLen) // if not end of buffer
+                    pos++;
+            }
             else // if start line
                 pos = startPos;
             
@@ -1250,6 +1267,8 @@ void TestLogsGroup::updateLogs(const std::vector<NewLogsBufQueueElem>& newLogsQu
         return;
     bool doScroll = false;
     cxuint lastToAlert = UINT_MAX;
+    
+    bool isEndAtVScroll = logOutput->isEndAtVScroll();
     
     std::string allLogs;
     std::vector<std::string> perTBI(textBuffers.size()-1);
@@ -1283,7 +1302,7 @@ void TestLogsGroup::updateLogs(const std::vector<NewLogsBufQueueElem>& newLogsQu
         choiceTestLog(lastToAlert);
         fl_alert("Failed test for device %s!", choiceLabels[lastToAlert-1]);
     }
-    if (doScroll)
+    if (doScroll && isEndAtVScroll)
         logOutput->scroll(maxLogLength, 0);
 }
 
