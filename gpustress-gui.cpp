@@ -1276,7 +1276,6 @@ void TestLogsGroup::updateLogs(const std::vector<NewLogsBufQueueElem>& newLogsQu
         {
             if (elem.textBufferIndex == 0)
                 throw MyException("Invalid text buffer!");
-            guiapp.setTabToTestLogs();
             lastToAlert = elem.textBufferIndex;
         }
     }
