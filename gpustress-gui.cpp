@@ -1486,7 +1486,6 @@ void GUIApp::startStopCalled(Fl_Widget* widget, void* data)
 
 void GUIApp::runStress()
 {
-    
     logOutputStream.flush();
     logOutputStream.str(std::string());
     testFinishedWithException = false;
