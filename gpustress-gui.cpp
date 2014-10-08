@@ -145,6 +145,8 @@ static std::string escapeForFlMenu(const std::string& s)
             out += "\\&";
         else if (c == '_')
             out += "\\_";
+        else if (c == '@')
+            out += "@@";
         else
             out.push_back(c);
     return out;
@@ -154,7 +156,9 @@ static std::string escapeForFlLabel(const std::string& s)
 {
     std::string out;
     for (const char c: s)
-        if (c == '&')
+        if (c == '@')
+            out += "@@";
+        else if (c == '&')
             out += "&&";
         else
             out.push_back(c);
@@ -1329,7 +1333,8 @@ try
     aboutGrp = new Fl_Group(0, 20, 760, 380, "About");
     Fl_Box* aboutText = new Fl_Box(10, 30, 740, 360);
     aboutText->labelfont(FL_HELVETICA_BOLD);
-    aboutText->label("CLGPUStress GUI " PROGRAM_VERSION " by Mateusz Szpakowski.\n"
+    aboutText->label("CLGPUStress GUI " PROGRAM_VERSION
+        " by Mateusz Szpakowski (matszpk@@interia.pl)\n"
         "Program is distributed under terms of the GPLv2.\n"
         "\n"
         "Website: http://clgpustress.nativeboinc.org\n"
