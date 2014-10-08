@@ -36,7 +36,6 @@
 #include <cstdlib>
 #include <csignal>
 #include <climits>
-#include <chrono>
 #include <vector>
 #include <thread>
 #include <mutex>
@@ -180,8 +179,6 @@ class GUIApp
 {
 private:
     
-    typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point;
-    time_point lastLogTime;
     std::vector<NewLogsBufQueueElem> newLogsQueue;
     
     Fl_Window* mainWin;
@@ -199,20 +196,14 @@ private:
     std::ostringstream logOutputStream;
     
     std::thread* mainStressThread;
-    
-    struct HandleOutputData
-    {
-        std::vector<NewLogsBufQueueElem> outQueue;
-        GUIApp* guiapp;
-    };
-    
+        
     bool isAppExitCalled;
     bool doExitAfterStop;
     bool testFinishedWithException;
     
     static void handleOutput(void* data, cxuint id);
     static void handleOutputAwake(void* data);
-    void flushHandleOutput();
+    static void updateLogsRepeatedly(void* data);
     
     static void stressEndAwake(void* data);
     
@@ -1424,48 +1415,26 @@ bool GUIApp::run()
 void GUIApp::handleOutput(void* data, cxuint id)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
-    
-    const time_point currentTime = std::chrono::high_resolution_clock::now();
-    const int64_t nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                currentTime-guiapp->lastLogTime).count();
-    
     const cxuint textBufferIndex = (id != UINT_MAX) ? id+1 : 0;
-    
     NewLogsBufQueueElem elem;
     elem.logText = guiapp->logOutputStream.str();
     elem.textBufferIndex = textBufferIndex;
     guiapp->newLogsQueue.push_back(elem);
     guiapp->logOutputStream.str(std::string()); // clear all
-    
-    if (nanos >= 10000000LL)
+}
+
+void GUIApp::updateLogsRepeatedly(void* data)
+{
+    GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
+    std::vector<NewLogsBufQueueElem> curLogsQueue;
     {
-        guiapp->lastLogTime = currentTime;
-        HandleOutputData* odata = new HandleOutputData;
-        odata->outQueue = guiapp->newLogsQueue;
-        odata->guiapp = guiapp;
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        curLogsQueue = guiapp->newLogsQueue;
         guiapp->newLogsQueue.clear();
-        // awake
-        while (Fl::awake(&GUIApp::handleOutputAwake, odata) != 0);
     }
-}
-
-void GUIApp::flushHandleOutput()
-{
-    if (newLogsQueue.empty())
-        return;
-    HandleOutputData* odata = new HandleOutputData;
-    odata->outQueue = newLogsQueue;
-    odata->guiapp = this;
-    newLogsQueue.clear();
-    // awake
-    while (Fl::awake(&GUIApp::handleOutputAwake, odata) != 0);
-}
-
-void GUIApp::handleOutputAwake(void* data)
-{
-    HandleOutputData* odata = reinterpret_cast<HandleOutputData*>(data);
-    odata->guiapp->testLogsGrp->updateLogs(odata->outQueue);
-    delete odata;
+    guiapp->testLogsGrp->updateLogs(curLogsQueue);
+    // reschedule it
+    Fl::repeat_timeout(0.01, &GUIApp::updateLogsRepeatedly, data);
 }
 
 void GUIApp::stressEndAwake(void* data)
@@ -1484,6 +1453,9 @@ void GUIApp::stressEndAwake(void* data)
         guiapp->mainStressThread->join();
     delete guiapp->mainStressThread;
     guiapp->mainStressThread = nullptr;
+    Fl::remove_timeout(&GUIApp::updateLogsRepeatedly, data);
+    updateLogsRepeatedly(data); // flush anything from logsQueue
+    
     if (guiapp->doExitAfterStop)
     {
         guiapp->mainWin->hide();
@@ -1510,6 +1482,7 @@ void GUIApp::startStopCalled(Fl_Widget* widget, void* data)
         guiapp->testLogsGrp->updateDeviceList();
         guiapp->mainTabs->value(guiapp->testLogsGrp);
         
+        Fl::add_timeout(0.01, &GUIApp::updateLogsRepeatedly, data);
         guiapp->mainStressThread = new std::thread(&GUIApp::runStress, guiapp);
     }
     else
@@ -1533,8 +1506,6 @@ void GUIApp::runStress()
     const size_t num = deviceChoiceGrp->getClDevicesNum();
     std::vector<GPUStressTester*> gpuStressTesters;
     std::vector<std::thread*> testerThreads;
-    
-    lastLogTime = std::chrono::high_resolution_clock::now();
     
     try
     {
@@ -1643,7 +1614,6 @@ void GUIApp::runStress()
         handleOutput(this, UINT_MAX);
     }
     
-    flushHandleOutput();
     while (Fl::awake(&GUIApp::stressEndAwake, this) != 0);
 }
 
