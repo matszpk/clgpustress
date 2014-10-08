@@ -68,7 +68,7 @@
 #  define SIZE_T_SPEC "%zu"
 #endif
 
-#define PROGRAM_VERSION "0.0.8.7"
+#define PROGRAM_VERSION "0.0.8.8"
 
 extern const char* testDescsTable[];
 
@@ -1226,16 +1226,12 @@ static void appendToTextBuffetWithLimit(Fl_Text_Buffer* textBuffer,
         else
         {
             const size_t textLen = textBuffer->length();
-            const char* text = textBuffer->text();
-            
             size_t pos = textLen + newLogs.size() - maxLogLength;
-            if (pos != 0 && text[pos-1] != '\n')
-            {
-                for (; pos < textLen; pos++)
-                    if (text[pos] == '\n')
-                        break;
-                pos++;
-            }
+            size_t startPos = textBuffer->line_start(pos);
+            if (startPos != pos)
+                pos = textBuffer->line_end(pos)+1;
+            else // if start line
+                pos = startPos;
             
             textBuffer->remove(0, pos);
             textBuffer->append(newLogs.c_str());
