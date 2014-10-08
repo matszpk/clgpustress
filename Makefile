@@ -14,7 +14,7 @@ CXX = g++
 LIBDIRS = -L$(OPENCLDIR)/lib
 INCDIRS = -I$(OPENCLDIR)/include -I`fltk-config --includedir`
 LIBS = -lm -pthread -lpopt -lOpenCL
-GUILIBS = `fltk-config --ldstaticflags` 
+GUILIBS = `fltk-config --ldstaticflags`
 
 all: gpustress-cli gpustress-gui
 
