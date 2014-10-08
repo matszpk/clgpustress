@@ -83,6 +83,8 @@ extern std::atomic<bool> stopAllStressTestersByUser;
 extern OutputHandler outputHandler;
 extern void* outputHandlerData;
 
+extern std::string trimSpaces(const std::string& s);
+
 extern std::vector<cxuint> parseCmdUIntList(const char* str, const char* name);
 
 extern std::vector<bool> parseCmdBoolList(const char* str, const char* name);

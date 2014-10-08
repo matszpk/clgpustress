@@ -32,7 +32,6 @@
 #include <string>
 #include <set>
 #include <map>
-#include <cstring>
 #include <cstdlib>
 #include <csignal>
 #include <climits>
@@ -68,7 +67,7 @@
 #  define SIZE_T_SPEC "%zu"
 #endif
 
-#define PROGRAM_VERSION "0.0.8.8"
+#define PROGRAM_VERSION "0.0.9"
 
 extern const char* testDescsTable[];
 
@@ -288,12 +287,9 @@ private:
     
     Fl_Tree* devicesTree;
     
-    std::vector<char*> labels;
-    
     GUIApp& guiapp;
 public:
     DeviceChoiceGroup(const std::vector<cl::Device>& clDevices, GUIApp& guiapp);
-    ~DeviceChoiceGroup();
     
     size_t getClDevicesNum() const
     { return allClDevices.size(); }
@@ -416,11 +412,11 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
             
             std::string platformName;
             clPlatform.getInfo(CL_PLATFORM_NAME, &platformName);
+            platformName = trimSpaces(platformName);
             
             std::string platformPath(numBuf);
             platformPath += escapeForFlTree(platformName);
-            labels.push_back(::strdup(platformPath.c_str()));
-            devicesTree->add(labels.back());
+            devicesTree->add(platformPath.c_str());
             
             for (cxuint j = 0; j < clDevices.size(); j++)
             {
@@ -433,16 +429,14 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
                 clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
                 devicePath += escapeForFlTree(deviceName);
                 
-                labels.push_back(::strdup(devicePath.c_str()));
-                Fl_Tree_Item* item = devicesTree->add(labels.back());
+                Fl_Tree_Item* item = devicesTree->add(devicePath.c_str());
                 devicesTree->begin();
                 
                 std::string deviceLabel(numBuf);
-                deviceLabel += deviceName;
+                deviceLabel += trimSpaces(deviceName);
                 std::string escapedStr = escapeForFlLabel(deviceLabel);
-                labels.push_back(::strdup(escapedStr.c_str()));
-                Fl_Check_Button* checkButton = new Fl_Check_Button(0, 0, 480, 20,
-                            labels.back());
+                Fl_Check_Button* checkButton = new Fl_Check_Button(0, 0, 480, 20);
+                checkButton->copy_label(escapedStr.c_str());
                 
                 checkButton->callback(&DeviceChoiceGroup::changeClDeviceEnable, this);
                 if (devicesListString == nullptr)
@@ -468,8 +462,7 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
                          (deviceType&CL_DEVICE_TYPE_ACCELERATOR)!=0?" ACC":"",
                          deviceClock, cxuint(memSize>>20), maxComputeUnits,
                          maxWorkGroupSize);
-                labels.push_back(::strdup(buf));
-                checkButton->tooltip(labels.back());
+                checkButton->copy_tooltip(buf);
                 
                 allClDevices.push_back(DeviceEntry(clDevice, checkButton));
                 devicesTree->end();
@@ -479,12 +472,6 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
     viewGroup->resizable(devicesTree);
     viewGroup->end();
     end();
-}
-
-DeviceChoiceGroup::~DeviceChoiceGroup()
-{
-    for (char* s: labels)
-        ::free(s);
 }
 
 void DeviceChoiceGroup::initialChoice(const std::vector<cl::Device>& inClDevices)
@@ -969,8 +956,10 @@ void TestConfigsGroup::updateDeviceList()
             clDevice.getInfo(CL_DEVICE_PLATFORM, &clPlatform);
             std::string platformName;
             clPlatform.getInfo(CL_PLATFORM_NAME, &platformName);
+            platformName = trimSpaces(platformName);
             std::string deviceName;
             clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
+            deviceName = trimSpaces(deviceName);
             
             char buf[32];
             snprintf(buf, 32, SIZE_T_SPEC ": ", j++);
@@ -1171,8 +1160,10 @@ void TestLogsGroup::updateDeviceList()
                 clDevice.getInfo(CL_DEVICE_PLATFORM, &clPlatform);
                 std::string platformName;
                 clPlatform.getInfo(CL_PLATFORM_NAME, &platformName);
+                platformName = trimSpaces(platformName);
                 std::string deviceName;
                 clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
+                deviceName = trimSpaces(deviceName);
                 
                 char buf[32];
                 snprintf(buf, 32, SIZE_T_SPEC ": ", j++);
@@ -1678,7 +1669,7 @@ int main(int argc, const char** argv)
         oss << poptBadOption(optsContext, POPT_BADOPTION_NOALIAS) << ": " <<
             poptStrerror(cmd);
         oss.flush();
-        std::string ossStr = oss.str();
+        std::string ossStr = escapeForFlLabel(oss.str());
 #ifndef _WINDOWS
         std::cerr << ossStr << std::endl;
 #endif
@@ -1800,7 +1791,7 @@ int main(int argc, const char** argv)
         oss << "OpenCL error happened: " << error.what() <<
                 ", Code: " << error.err();
         oss.flush();
-        std::string ossStr = oss.str();
+        std::string ossStr = escapeForFlLabel(oss.str());
 #ifndef _WINDOWS
         std::cerr << ossStr << std::endl;
 #endif
@@ -1812,7 +1803,7 @@ int main(int argc, const char** argv)
         std::ostringstream oss;
         oss << "Exception happened: " << ex.what();
         oss.flush();
-        std::string ossStr = oss.str();
+        std::string ossStr = escapeForFlLabel(oss.str());
 #ifndef _WINDOWS
         std::cerr << ossStr << std::endl;
 #endif

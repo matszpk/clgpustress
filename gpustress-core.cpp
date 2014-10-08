@@ -53,6 +53,15 @@ const char* MyException::what() const throw()
     return message.c_str();
 }
 
+std::string trimSpaces(const std::string& s)
+{
+    std::string::size_type pos = s.find_first_not_of(" \n\t\r\v\f");
+    if (pos == std::string::npos)
+        return "";
+    std::string::size_type endPos = s.find_last_not_of(" \n\t\r\v\f");
+    return s.substr(pos, endPos+1-pos);
+}
+
 int useCPUs = 0;
 int useGPUs = 0;
 int useAccelerators = 0;
@@ -317,7 +326,9 @@ try :
     clDevice.getInfo(CL_DEVICE_PLATFORM, &clPlatform);
     
     clPlatform.getInfo(CL_PLATFORM_NAME, &platformName);
+    platformName = trimSpaces(platformName);
     clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
+    deviceName = trimSpaces(deviceName);
     
     cl_uint maxComputeUnits;
     if (config.groupSize == 0)

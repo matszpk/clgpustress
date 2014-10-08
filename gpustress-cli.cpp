@@ -33,7 +33,7 @@
 #include <CL/cl.hpp>
 #include "gpustress-core.h"
 
-#define PROGRAM_VERSION "0.0.8.8"
+#define PROGRAM_VERSION "0.0.9"
 
 extern const char* testDescsTable[];
 
@@ -132,7 +132,8 @@ static void listCLDevices()
             std::string deviceName;
             clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
             
-            std::cout << i << ":" << j << "  " << platformName << ":" << deviceName << "\n";
+            std::cout << i << ":" << j << "  " << trimSpaces(platformName) <<
+                    ":" << trimSpaces(deviceName) << "\n";
             
             printCLDeviceInfo(clDevice);
         }
@@ -152,7 +153,8 @@ static void listChoosenCLDevices(const std::vector<cl::Device>& list)
         std::string deviceName;
         clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
         
-        std::cout << i << "  " << platformName << ":" << deviceName << "\n";
+        std::cout << i << "  " << trimSpaces(platformName) << ":" <<
+                trimSpaces(deviceName) << "\n";
         
         printCLDeviceInfo(clDevice);
     }
@@ -182,7 +184,8 @@ int main(int argc, const char** argv)
         return 1;
     }
     
-    std::cout << "CLGPUStress CLI " PROGRAM_VERSION " by Mateusz Szpakowski. "
+    std::cout << "CLGPUStress CLI " PROGRAM_VERSION
+        " by Mateusz Szpakowski (matszpk@interia.pl)\n"
         "Program is distributed under terms of the GPLv2.\n"
         "Website: http://clgpustress.nativeboinc.org.\n"
         "Sources available at https://github.com/matszpk/clgpustress.\n"
