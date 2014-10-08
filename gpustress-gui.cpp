@@ -36,6 +36,7 @@
 #include <cstdlib>
 #include <csignal>
 #include <climits>
+#include <chrono>
 #include <vector>
 #include <thread>
 #include <mutex>
@@ -169,9 +170,20 @@ class TestLogsGroup;
  * main GUI app class
  */
 
+struct NewLogsBufQueueElem
+{
+    cxuint textBufferIndex;
+    std::string logText;
+};
+
 class GUIApp
 {
 private:
+    
+    typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point;
+    time_point lastLogTime;
+    std::vector<NewLogsBufQueueElem> newLogsQueue;
+    
     Fl_Window* mainWin;
     Fl_Window* alertWin;
     Fl_Tabs* mainTabs;
@@ -190,8 +202,7 @@ private:
     
     struct HandleOutputData
     {
-        std::string outStr;
-        cxuint textBufferIndex;
+        std::vector<NewLogsBufQueueElem> outQueue;
         GUIApp* guiapp;
     };
     
@@ -201,6 +212,7 @@ private:
     
     static void handleOutput(void* data, cxuint id);
     static void handleOutputAwake(void* data);
+    void flushHandleOutput();
     
     static void stressEndAwake(void* data);
     
@@ -1050,7 +1062,7 @@ public:
     ~TestLogsGroup();
     
     void updateDeviceList();
-    void updateLogs(const std::string& newLogs, cxuint textBufferIndex);
+    void updateLogs(const std::vector<NewLogsBufQueueElem>& newLogsQueue);
     void choiceTestLog(cxuint index);
 };
 
@@ -1241,23 +1253,48 @@ static void appendToTextBuffetWithLimit(Fl_Text_Buffer* textBuffer,
         textBuffer->append(newLogs.c_str());
 }
 
-void TestLogsGroup::updateLogs(const std::string& newLogs, cxuint textBufferIndex)
+void TestLogsGroup::updateLogs(const std::vector<NewLogsBufQueueElem>& newLogsQueue)
 {
-    if (newLogs.empty())
+    if (newLogsQueue.empty())
         return;
-    appendToTextBuffetWithLimit(textBuffers[0], newLogs);
-    if (textBufferIndex != 0)
-        appendToTextBuffetWithLimit(textBuffers[textBufferIndex], newLogs);
+    bool doScroll = false;
+    cxuint lastToAlert = UINT_MAX;
     
-    if (newLogs.compare(0, 23, "Failed StressTester for") == 0)
+    std::string allLogs;
+    std::vector<std::string> perTBI(textBuffers.size()-1);
+    for (const NewLogsBufQueueElem& elem: newLogsQueue)
     {
-        if (textBufferIndex == 0)
-            throw MyException("Invalid text buffer!");
-        guiapp.setTabToTestLogs();
-        choiceTestLog(textBufferIndex);
-        fl_alert("Failed test for device %s!", choiceLabels[textBufferIndex-1]);
+        if (elem.logText.empty())
+            continue;
+        
+        doScroll = true;
+        allLogs += elem.logText;
+        if (elem.textBufferIndex != 0)
+            perTBI[elem.textBufferIndex-1] += elem.logText;
+        
+        if (elem.logText.compare(0, 23, "Failed StressTester for") == 0)
+        {
+            if (elem.textBufferIndex == 0)
+                throw MyException("Invalid text buffer!");
+            guiapp.setTabToTestLogs();
+            lastToAlert = elem.textBufferIndex;
+        }
     }
-    logOutput->scroll(maxLogLength, 0);
+    
+    if (!allLogs.empty())
+        appendToTextBuffetWithLimit(textBuffers[0], allLogs);
+    for (cxuint i = 0; i < perTBI.size(); i++)
+        if (!perTBI[i].empty())
+            appendToTextBuffetWithLimit(textBuffers[i+1], perTBI[i]);
+    
+    if (lastToAlert != UINT_MAX)
+    {
+        guiapp.setTabToTestLogs();
+        choiceTestLog(lastToAlert);
+        fl_alert("Failed test for device %s!", choiceLabels[lastToAlert-1]);
+    }
+    if (doScroll)
+        logOutput->scroll(maxLogLength, 0);
 }
 
 void TestLogsGroup::choiceTestLog(cxuint index)
@@ -1388,12 +1425,39 @@ bool GUIApp::run()
 void GUIApp::handleOutput(void* data, cxuint id)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
- 
-    HandleOutputData* odata = new HandleOutputData;
-    odata->outStr = guiapp->logOutputStream.str();
-    odata->guiapp = guiapp;
-    odata->textBufferIndex = (id != UINT_MAX) ? id+1 : 0;
+    
+    const time_point currentTime = std::chrono::high_resolution_clock::now();
+    const int64_t nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                currentTime-guiapp->lastLogTime).count();
+    
+    const cxuint textBufferIndex = (id != UINT_MAX) ? id+1 : 0;
+    
+    NewLogsBufQueueElem elem;
+    elem.logText = guiapp->logOutputStream.str();
+    elem.textBufferIndex = textBufferIndex;
+    guiapp->newLogsQueue.push_back(elem);
     guiapp->logOutputStream.str(std::string()); // clear all
+    
+    if (nanos >= 10000000LL)
+    {
+        guiapp->lastLogTime = currentTime;
+        HandleOutputData* odata = new HandleOutputData;
+        odata->outQueue = guiapp->newLogsQueue;
+        odata->guiapp = guiapp;
+        guiapp->newLogsQueue.clear();
+        // awake
+        while (Fl::awake(&GUIApp::handleOutputAwake, odata) != 0);
+    }
+}
+
+void GUIApp::flushHandleOutput()
+{
+    if (newLogsQueue.empty())
+        return;
+    HandleOutputData* odata = new HandleOutputData;
+    odata->outQueue = newLogsQueue;
+    odata->guiapp = this;
+    newLogsQueue.clear();
     // awake
     while (Fl::awake(&GUIApp::handleOutputAwake, odata) != 0);
 }
@@ -1401,7 +1465,7 @@ void GUIApp::handleOutput(void* data, cxuint id)
 void GUIApp::handleOutputAwake(void* data)
 {
     HandleOutputData* odata = reinterpret_cast<HandleOutputData*>(data);
-    odata->guiapp->testLogsGrp->updateLogs(odata->outStr, odata->textBufferIndex);
+    odata->guiapp->testLogsGrp->updateLogs(odata->outQueue);
     delete odata;
 }
 
@@ -1458,6 +1522,7 @@ void GUIApp::startStopCalled(Fl_Widget* widget, void* data)
 
 void GUIApp::runStress()
 {
+    
     logOutputStream.flush();
     logOutputStream.str(std::string());
     testFinishedWithException = false;
@@ -1469,6 +1534,8 @@ void GUIApp::runStress()
     const size_t num = deviceChoiceGrp->getClDevicesNum();
     std::vector<GPUStressTester*> gpuStressTesters;
     std::vector<std::thread*> testerThreads;
+    
+    lastLogTime = std::chrono::high_resolution_clock::now();
     
     try
     {
@@ -1577,6 +1644,7 @@ void GUIApp::runStress()
         handleOutput(this, UINT_MAX);
     }
     
+    flushHandleOutput();
     while (Fl::awake(&GUIApp::stressEndAwake, this) != 0);
 }
 
