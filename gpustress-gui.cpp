@@ -769,7 +769,6 @@ private:
     Fl_Choice* deviceChoice;
     SingleTestConfigGroup* singleConfigGroup;
     
-    std::vector<char*> choiceLabels;
     Fl_Button* toAllDevicesButton;
     Fl_Button* toTheseSameDevsButton;
     
@@ -785,7 +784,6 @@ private:
 public:
     TestConfigsGroup(const std::vector<cl::Device>& clDevices,
             const std::vector<GPUStressConfig>& configs, GUIApp& _guiapp);
-    ~TestConfigsGroup();
     
     void updateDeviceList();
     
@@ -827,12 +825,6 @@ TestConfigsGroup::TestConfigsGroup(const std::vector<cl::Device>& clDevices,
     viewGroup->resizable(singleConfigGroup);
     viewGroup->end();
     end();
-}
-
-TestConfigsGroup::~TestConfigsGroup()
-{
-    for (char* s: choiceLabels)
-        ::free(s);
 }
 
 void TestConfigsGroup::selectedDeviceChanged(Fl_Widget* widget, void* data)
@@ -959,11 +951,6 @@ void TestConfigsGroup::updateDeviceList()
     cl_device_id prevCLDeviceID = curClDeviceID;
     curClDeviceID = nullptr;
     
-    deviceChoice->clear();
-    for (char* s: choiceLabels)
-        ::free(s);
-    choiceLabels.clear();
-    
     size_t choiceIndex = 0;
     for (size_t i = 0; i < devChoiceGroup->getClDevicesNum(); i++)
         if (devChoiceGroup->isClDeviceEnabled(i))
@@ -989,8 +976,7 @@ void TestConfigsGroup::updateDeviceList()
             label += deviceName;
             label = escapeForFlMenu(label);
             
-            choiceLabels.push_back(::strdup(label.c_str()));
-            deviceChoice->add(choiceLabels.back());
+            deviceChoice->add(label.c_str());
             
             if (curClDeviceID == nullptr)
                 curClDeviceID = clDevice();
@@ -1052,8 +1038,6 @@ private:
     Fl_Button* saveLogButton;
     Fl_Button* clearLogButton;
     
-    std::vector<char*> choiceLabels;
-    
     static void selectedDeviceChanged(Fl_Widget* widget, void* data);
     static void saveLogCalled(Fl_Widget* widget, void* data);
     static void clearLogCalled(Fl_Widget* widget, void* data);
@@ -1113,8 +1097,6 @@ TestLogsGroup::~TestLogsGroup()
     logOutput->buffer(nullptr);
     for (Fl_Text_Buffer* tbuf: textBuffers)
         delete tbuf;
-    for (char* s: choiceLabels)
-        ::free(s);
 }
 
 void TestLogsGroup::selectedDeviceChanged(Fl_Widget* widget, void* data)
@@ -1167,10 +1149,6 @@ void TestLogsGroup::updateDeviceList()
     for (Fl_Text_Buffer* tbuf: textBuffers)
         delete tbuf;
     
-    for (char* s: choiceLabels)
-        ::free(s);
-    choiceLabels.clear();
-    
     textBuffers.clear();
     deviceChoice->clear();
     
@@ -1200,8 +1178,7 @@ void TestLogsGroup::updateDeviceList()
                 label += deviceName;
                 label = escapeForFlMenu(label);
             
-                choiceLabels.push_back(::strdup(label.c_str()));
-                deviceChoice->add(choiceLabels.back());
+                deviceChoice->add(label.c_str());
                 textBuffers.push_back(new Fl_Text_Buffer());
             }
         
@@ -1300,7 +1277,7 @@ void TestLogsGroup::updateLogs(const std::vector<NewLogsBufQueueElem>& newLogsQu
     {
         guiapp.setTabToTestLogs();
         choiceTestLog(lastToAlert);
-        fl_alert("Failed test for device %s!", choiceLabels[lastToAlert-1]);
+        fl_alert("Failed test for device %s!", deviceChoice->text(lastToAlert));
     }
     if (doScroll && isEndAtVScroll)
         logOutput->scroll(maxLogLength, 0);
