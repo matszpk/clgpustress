@@ -18,7 +18,7 @@ BUT MUCH BETTER LOADS GPU CORE. MOREOVER MUCH BETTER BURNS GRAPHICS CARD THAN FU
 
 ### About older versions
 
-An older versions is really alpha test version.
+An older versions (older than 0.0.8.8) were really alpha test version.
 They has few SERIOUS bugs and was only for testing and bug hunting.
 We recommend to use versions not older than 0.0.8.8.
 
