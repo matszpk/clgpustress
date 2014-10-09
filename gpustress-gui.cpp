@@ -152,7 +152,7 @@ static std::string escapeForFlMenu(const std::string& s)
     return out;
 }
 
-static std::string escapeForFlLabel(const std::string& s)
+static std::string escapeForFlULabel(const std::string& s)
 {
     std::string out;
     for (const char c: s)
@@ -160,6 +160,17 @@ static std::string escapeForFlLabel(const std::string& s)
             out += "@@";
         else if (c == '&')
             out += "&&";
+        else
+            out.push_back(c);
+    return out;
+}
+
+static std::string escapeForFlLabel(const std::string& s)
+{
+    std::string out;
+    for (const char c: s)
+        if (c == '@')
+            out += "@@";
         else
             out.push_back(c);
     return out;
@@ -445,7 +456,7 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
                 
                 std::string deviceLabel(numBuf);
                 deviceLabel += trimSpaces(deviceName);
-                std::string escapedStr = escapeForFlLabel(deviceLabel);
+                std::string escapedStr = escapeForFlULabel(deviceLabel);
                 Fl_Check_Button* checkButton = new Fl_Check_Button(0, 0, 480, 20);
                 checkButton->copy_label(escapedStr.c_str());
                 
@@ -1710,11 +1721,12 @@ int main(int argc, const char** argv)
         oss << poptBadOption(optsContext, POPT_BADOPTION_NOALIAS) << ": " <<
             poptStrerror(cmd);
         oss.flush();
-        std::string ossStr = escapeForFlLabel(oss.str());
+        std::string ossStr = oss.str();
 #ifndef _WINDOWS
         std::cerr << ossStr << std::endl;
 #endif
-        fl_alert("%s", ossStr.c_str());
+        std::string escapedStr = escapeForFlLabel(ossStr);
+        fl_alert("%s", escapedStr.c_str());
         poptFreeContext(optsContext);
         return 1;
     }
@@ -1832,11 +1844,12 @@ int main(int argc, const char** argv)
         oss << "OpenCL error happened: " << error.what() <<
                 ", Code: " << error.err();
         oss.flush();
-        std::string ossStr = escapeForFlLabel(oss.str());
+        std::string ossStr = oss.str();
 #ifndef _WINDOWS
         std::cerr << ossStr << std::endl;
 #endif
-        fl_alert("%s", ossStr.c_str());
+        std::string escapedStr = escapeForFlLabel(ossStr);
+        fl_alert("%s", escapedStr.c_str());
         retVal = 1;
     }
     catch(const std::exception& ex)
@@ -1844,11 +1857,12 @@ int main(int argc, const char** argv)
         std::ostringstream oss;
         oss << "Exception happened: " << ex.what();
         oss.flush();
-        std::string ossStr = escapeForFlLabel(oss.str());
+        std::string ossStr = oss.str();
 #ifndef _WINDOWS
         std::cerr << ossStr << std::endl;
 #endif
-        fl_alert("%s", ossStr.c_str());
+        std::string escapedStr = escapeForFlLabel(ossStr);
+        fl_alert("%s", escapedStr.c_str());
         retVal = 1;
     }
     catch(...)
