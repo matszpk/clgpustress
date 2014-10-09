@@ -1050,6 +1050,7 @@ private:
     
     std::vector<Fl_Text_Buffer*> textBuffers;
     
+    std::vector<std::string> origDeviceNames;
     MyTextDisplay* logOutput;
     
     Fl_Button* saveLogButton;
@@ -1168,6 +1169,7 @@ void TestLogsGroup::updateDeviceList()
     
     textBuffers.clear();
     deviceChoice->clear();
+    origDeviceNames.clear();
     
     const DeviceChoiceGroup* devChoiceGroup = guiapp.getDeviceChoiceGroup();
     if (devChoiceGroup->getEnabledDevicesCount() != 0)
@@ -1195,6 +1197,7 @@ void TestLogsGroup::updateDeviceList()
                 label += platformName;
                 label += ":";
                 label += deviceName;
+                origDeviceNames.push_back(escapeForFlLabel(label));
                 label = escapeForFlMenu(label);
             
                 deviceChoice->add(label.c_str());
@@ -1296,7 +1299,7 @@ void TestLogsGroup::updateLogs(const std::vector<NewLogsBufQueueElem>& newLogsQu
     {
         guiapp.setTabToTestLogs();
         choiceTestLog(lastToAlert);
-        fl_alert("Failed test for device %s!", deviceChoice->text(lastToAlert));
+        fl_alert("Failed test for device %s!", origDeviceNames[lastToAlert-1].c_str());
     }
     if (doScroll && isEndAtVScroll)
         logOutput->scroll(maxLogLength, 0);
