@@ -1546,7 +1546,6 @@ void GUIApp::runStress()
     stopAllStressTestersByUser.store(false);
     
     exitIfAllFails = this->exitAllFailsValue;
-    std::cout << exitIfAllFails << std::endl;
     
     const size_t num = deviceChoiceGrp->getClDevicesNum();
     std::vector<GPUStressTester*> gpuStressTesters;
