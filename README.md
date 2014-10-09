@@ -16,6 +16,12 @@ BUT MUCH BETTER LOADS GPU CORE. MOREOVER MUCH BETTER BURNS GRAPHICS CARD THAN FU
 
 **YOU ARE USING THIS SOFTWARE ONLY AT YOUR OWN RISK!**
 
+### About older versions
+
+An older versions is really alpha test version.
+They has few SERIOUS bugs and was only for testing and bug hunting.
+We recommend to use versions not older than 0.0.8.8.
+
 ### Binaries, sources and website
 
 Project website: [http://clgpustress.nativeboinc.org](http://clgpustress.nativeboinc.org).
