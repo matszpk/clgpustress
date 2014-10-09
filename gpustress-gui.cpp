@@ -35,6 +35,7 @@
 #include <cstdlib>
 #include <csignal>
 #include <climits>
+#include <chrono>
 #include <vector>
 #include <thread>
 #include <mutex>
@@ -194,8 +195,18 @@ struct NewLogsBufQueueElem
 class GUIApp
 {
 private:
+    typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point;
+    time_point lastLogTime;
     
     std::vector<NewLogsBufQueueElem> newLogsQueue;
+    
+    struct HandleOutputData
+    {
+        std::vector<NewLogsBufQueueElem> outQueue;
+        GUIApp* guiapp;
+    };
+    
+    std::atomic<bool> updateTimerIsRun;
     
     Fl_Window* mainWin;
     Fl_Window* alertWin;
@@ -212,7 +223,7 @@ private:
     std::ostringstream logOutputStream;
     
     std::thread* mainStressThread;
-        
+    
     bool isAppExitCalled;
     bool doExitAfterStop;
     bool testFinishedWithException;
@@ -941,6 +952,7 @@ void TestConfigsGroup::updateDeviceList()
     size_t prevChoiceIndex = deviceChoice->value();
     cl_device_id prevCLDeviceID = curClDeviceID;
     curClDeviceID = nullptr;
+    deviceChoice->clear();
     
     size_t choiceIndex = 0;
     for (size_t i = 0; i < devChoiceGroup->getClDevicesNum(); i++)
@@ -1295,6 +1307,7 @@ try
 {
     doExitAfterStop = false;
     isAppExitCalled = false;
+    updateTimerIsRun.store(false);
     mainStressThread = nullptr;
     
     alertWin = new Fl_Window(600, 150, "GPUStress Caution!");
@@ -1407,12 +1420,37 @@ bool GUIApp::run()
 void GUIApp::handleOutput(void* data, cxuint id)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
+    const time_point currentTime = std::chrono::high_resolution_clock::now();
+    const int64_t nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                currentTime-guiapp->lastLogTime).count();
+    
     const cxuint textBufferIndex = (id != UINT_MAX) ? id+1 : 0;
     NewLogsBufQueueElem elem;
     elem.logText = guiapp->logOutputStream.str();
     elem.textBufferIndex = textBufferIndex;
     guiapp->newLogsQueue.push_back(elem);
     guiapp->logOutputStream.str(std::string()); // clear all
+    
+    if (nanos >= 10000000LL && !guiapp->updateTimerIsRun.load())
+    {
+        guiapp->lastLogTime = currentTime;
+        HandleOutputData* odata = new HandleOutputData;
+        odata->outQueue = guiapp->newLogsQueue;
+        odata->guiapp = guiapp;
+        guiapp->newLogsQueue.clear();
+        // awake
+        while (Fl::awake(&GUIApp::handleOutputAwake, odata) != 0);
+    }
+}
+
+void GUIApp::handleOutputAwake(void* data)
+{
+    HandleOutputData* odata = reinterpret_cast<HandleOutputData*>(data);
+    odata->guiapp->testLogsGrp->updateLogs(odata->outQueue);
+    // add timeout for when awaken
+    odata->guiapp->updateTimerIsRun.store(true);
+    Fl::add_timeout(0.01, &GUIApp::updateLogsRepeatedly, odata->guiapp);
+    delete odata;
 }
 
 void GUIApp::updateLogsRepeatedly(void* data)
@@ -1421,12 +1459,14 @@ void GUIApp::updateLogsRepeatedly(void* data)
     std::vector<NewLogsBufQueueElem> curLogsQueue;
     {
         std::lock_guard<std::mutex> l(stdOutputMutex);
+        guiapp->lastLogTime = std::chrono::high_resolution_clock::now();
         curLogsQueue = guiapp->newLogsQueue;
         guiapp->newLogsQueue.clear();
     }
     guiapp->testLogsGrp->updateLogs(curLogsQueue);
-    // reschedule it
-    Fl::repeat_timeout(0.01, &GUIApp::updateLogsRepeatedly, data);
+    // if not used remove timeout
+    Fl::remove_timeout(&GUIApp::updateLogsRepeatedly, data);
+    guiapp->updateTimerIsRun.store(false);
 }
 
 void GUIApp::stressEndAwake(void* data)
@@ -1446,6 +1486,7 @@ void GUIApp::stressEndAwake(void* data)
     delete guiapp->mainStressThread;
     guiapp->mainStressThread = nullptr;
     Fl::remove_timeout(&GUIApp::updateLogsRepeatedly, data);
+    guiapp->updateTimerIsRun.store(true);
     updateLogsRepeatedly(data); // flush anything from logsQueue
     
     if (guiapp->doExitAfterStop)
@@ -1474,7 +1515,6 @@ void GUIApp::startStopCalled(Fl_Widget* widget, void* data)
         guiapp->testLogsGrp->updateDeviceList();
         guiapp->mainTabs->value(guiapp->testLogsGrp);
         
-        Fl::add_timeout(0.01, &GUIApp::updateLogsRepeatedly, data);
         guiapp->mainStressThread = new std::thread(&GUIApp::runStress, guiapp);
     }
     else
@@ -1497,6 +1537,8 @@ void GUIApp::runStress()
     const size_t num = deviceChoiceGrp->getClDevicesNum();
     std::vector<GPUStressTester*> gpuStressTesters;
     std::vector<std::thread*> testerThreads;
+    
+    lastLogTime = std::chrono::high_resolution_clock::now();
     
     try
     {
