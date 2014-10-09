@@ -230,6 +230,7 @@ private:
     
     Fl_Check_Button* exitAllFailsButton;
     Fl_Button* startStopButton;
+    bool exitAllFailsValue;
     
     std::ostringstream logOutputStream;
     
@@ -1525,6 +1526,7 @@ void GUIApp::startStopCalled(Fl_Widget* widget, void* data)
         guiapp->exitAllFailsButton->deactivate();
         guiapp->testLogsGrp->updateDeviceList();
         guiapp->mainTabs->value(guiapp->testLogsGrp);
+        guiapp->exitAllFailsValue = guiapp->exitAllFailsButton->value();
         
         guiapp->mainStressThread = new std::thread(&GUIApp::runStress, guiapp);
     }
@@ -1543,7 +1545,8 @@ void GUIApp::runStress()
     stopAllStressTestersIfFail.store(false);
     stopAllStressTestersByUser.store(false);
     
-    exitIfAllFails = exitAllFailsButton->value();
+    exitIfAllFails = this->exitAllFailsValue;
+    std::cout << exitIfAllFails << std::endl;
     
     const size_t num = deviceChoiceGrp->getClDevicesNum();
     std::vector<GPUStressTester*> gpuStressTesters;
