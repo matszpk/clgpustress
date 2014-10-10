@@ -442,36 +442,58 @@ int main(int argc, const char** argv)
         retVal = 1;
     }
     // clean up
-    for (size_t i = 0; i < testerThreads.size(); i++)
-        if (testerThreads[i] != nullptr)
-        {
-            try
-            { testerThreads[i]->join(); }
-            catch(const std::exception& ex)
-            {
-                std::lock_guard<std::mutex> l(stdOutputMutex);
-                *errStream << "Failed join for stress thread #" << i << "!!!" << std::endl;
-                retVal = 1;
-            }
-            delete testerThreads[i];
-            testerThreads[i] = nullptr;
-            if (gpuStressTesters.size() > i &&
-                gpuStressTesters[i] != nullptr && !gpuStressTesters[i]->isFailed())
-            {
-                std::lock_guard<std::mutex> l(stdOutputMutex);
-                *outStream << "Finished #" << i << std::endl;
-            }
-        }
-    
-    for (size_t i = 0; i < gpuStressTesters.size(); i++)
+    try
     {
-        if (gpuStressTesters[i]->isFailed())
+        for (size_t i = 0; i < testerThreads.size(); i++)
+            if (testerThreads[i] != nullptr)
+            {
+                try
+                { testerThreads[i]->join(); }
+                catch(const std::exception& ex)
+                {
+                    std::lock_guard<std::mutex> l(stdOutputMutex);
+                    *errStream << "Failed join for stress thread #" << i << "!!!" << std::endl;
+                    retVal = 1;
+                }
+                delete testerThreads[i];
+                testerThreads[i] = nullptr;
+                if (gpuStressTesters.size() > i &&
+                    gpuStressTesters[i] != nullptr && !gpuStressTesters[i]->isFailed())
+                {
+                    std::lock_guard<std::mutex> l(stdOutputMutex);
+                    *outStream << "Finished #" << i << std::endl;
+                }
+            }
+        
+        for (size_t i = 0; i < gpuStressTesters.size(); i++)
         {
-            retVal = 1;
-            std::lock_guard<std::mutex> l(stdOutputMutex);
-            *errStream << "Failed #" << i << std::endl;
+            if (gpuStressTesters[i]->isFailed())
+            {
+                retVal = 1;
+                std::lock_guard<std::mutex> l(stdOutputMutex);
+                *errStream << "Failed #" << i << std::endl;
+            }
+            delete gpuStressTesters[i];
         }
-        delete gpuStressTesters[i];
+    }
+    catch(const cl::Error& error)
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        *errStream << "OpenCL error happened: " << error.what() <<
+                ", Code: " << error.err() << std::endl;
+        retVal = 1;
+    }
+    catch(const std::exception& ex)
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        *errStream << "Exception happened: " << ex.what() << std::endl;
+        retVal = 1;
+    }
+    catch(...)
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        *errStream << "Unknown exception happened" << std::endl;
+        retVal = 1;
     }
     
     uninstallSignals();

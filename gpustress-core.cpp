@@ -316,11 +316,12 @@ try :
         blocksNum(config.blocksNum), passItersNum(config.passItersNum),
         kitersNum(config.kitersNum), useInputAndOutput(config.inputAndOutput),
         initialValues(nullptr), toCompare(nullptr), results(nullptr)
-{       // set clDevice, after because can fails and pointers to free must be set
-    clDevice = _clDevice;
+{
+    initialized = false;
     failed = false;
     usePolyWalker = false;
-    initialized = false;
+    // set clDevice, after because can fails and pointers to free must be set
+    clDevice = _clDevice;
     
     cl::Platform clPlatform;
     clDevice.getInfo(CL_DEVICE_PLATFORM, &clPlatform);
@@ -382,6 +383,14 @@ try :
                 ", testType=" << config.builtinKernel <<
                 ",\n    inputAndOutput=" << (useInputAndOutput?"yes":"no") << std::endl;
         handleOutput(id);
+    }
+    
+    if (stopAllStressTestersByUser.load())
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        *outStream << "#" << id << " Exiting, because user stopped test." << std::endl;
+        handleOutput(id);
+        return;
     }
     
     cl_context_properties clContextProps[3];
