@@ -404,20 +404,58 @@ int main(int argc, const char** argv)
         installSignals();
         
         bool ifExitingAtInit = false;
-        for (size_t i = 0; i < choosenCLDevices.size(); i++)
-        {
-            cl::Device& clDevice = choosenCLDevices[i];
-            GPUStressTester* stressTester = new GPUStressTester(i, clDevice,
-                        gpuStressConfigs[i]);
-            if (!stressTester->isInitialized())
+        
+        {   /* create thread for preparing GPUStressTesters */
+            std::thread preparingThread(
+                [&retVal,&ifExitingAtInit,&choosenCLDevices,&gpuStressTesters,
+                    &gpuStressConfigs]()
             {
-                ifExitingAtInit = true;
-                delete stressTester;
-                break;
+                try
+                {
+                    for (size_t i = 0; i < choosenCLDevices.size(); i++)
+                    {
+                        cl::Device& clDevice = choosenCLDevices[i];
+                        GPUStressTester* stressTester = new GPUStressTester(i, clDevice,
+                                    gpuStressConfigs[i]);
+                        if (!stressTester->isInitialized())
+                        {
+                            ifExitingAtInit = true;
+                            delete stressTester;
+                            break;
+                        }
+                        gpuStressTesters.push_back(stressTester);
+                    }
+                }
+                catch(const cl::Error& error)
+                {
+                    std::lock_guard<std::mutex> l(stdOutputMutex);
+                    *errStream << "OpenCL error happened: " << error.what() <<
+                            ", Code: " << error.err() << std::endl;
+                    retVal = 1;
+                }
+                catch(const std::exception& ex)
+                {
+                    std::lock_guard<std::mutex> l(stdOutputMutex);
+                    *errStream << "Exception happened: " << ex.what() << std::endl;
+                    retVal = 1;
+                }
+                catch(...)
+                {
+                    std::lock_guard<std::mutex> l(stdOutputMutex);
+                    *errStream << "Unknown exception happened" << std::endl;
+                    retVal = 1;
+                }
+            });
+            try
+            { preparingThread.join(); }
+            catch(...)
+            {
+                std::lock_guard<std::mutex> l(stdOutputMutex);
+                *errStream << "Failed join for preparing thread!!!" << std::endl;
+                retVal = 1;
             }
-            gpuStressTesters.push_back(stressTester);
         }
-        if (!ifExitingAtInit)
+        if (!ifExitingAtInit && retVal==0)
             for (size_t i = 0; i < choosenCLDevices.size(); i++)
                 testerThreads.push_back(new std::thread(
                         &GPUStressTester::runTest, gpuStressTesters[i]));
