@@ -446,14 +446,7 @@ int main(int argc, const char** argv)
                     retVal = 1;
                 }
             });
-            try
-            { preparingThread.join(); }
-            catch(...)
-            {
-                std::lock_guard<std::mutex> l(stdOutputMutex);
-                *errStream << "Failed join for preparing thread!!!" << std::endl;
-                retVal = 1;
-            }
+            preparingThread.join();
         }
         if (!ifExitingAtInit && retVal==0)
             for (size_t i = 0; i < choosenCLDevices.size(); i++)
