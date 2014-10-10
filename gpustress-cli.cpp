@@ -29,6 +29,12 @@
 #include <vector>
 #include <thread>
 #include <mutex>
+#  include <cerrno>
+#ifdef _WINDOWS
+#  include <windows.h>
+#else
+#  include <csignal>
+#endif
 #include <popt.h>
 #include <CL/cl.hpp>
 #include "gpustress-core.h"
@@ -161,6 +167,112 @@ static void listChoosenCLDevices(const std::vector<cl::Device>& list)
     std::cout.flush();
 }
 
+#ifdef _WINDOWS
+static BOOL WINAPI handleCtrlInterrupt(DWORD ctrlType)
+{
+    if (ctrlType == CTRL_C_EVENT)
+    {
+        stopAllStressTestersByUser.store(true);
+        SetConsoleCtrlHandler(handleCtrlInterrupt, FALSE);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+static void installSignals()
+{
+    if (SetConsoleCtrlHandler(handleCtrlInterrupt, TRUE) == 0)
+        std::cerr << "WARNING: CTRL-C handling not installed!" << std::endl;
+}
+
+static void uninstallSignals()
+{
+    SetConsoleCtrlHandler(handleCtrlInterrupt, FALSE);
+}
+#else
+static void* alternateStack = nullptr;
+static bool isOldSigIntAct = false;
+static struct sigaction oldSigIntAct;
+static bool isOldAltStack = false;
+static stack_t oldAltStack;
+static bool signalHandlerInstalled = false;
+
+static void handleInterrupt(int signo)
+{
+    stopAllStressTestersByUser.store(true);
+}
+
+static void installSignals()
+{
+    stack_t stkSpec;
+    struct sigaction sigAct;
+    if (sigaction(SIGINT, nullptr, &sigAct) != 0)
+    {
+        std::cerr << "WARNING: Signal handling not installed!" << std::endl;
+        return;
+    }
+    oldSigIntAct = sigAct;
+    isOldSigIntAct = true;
+    
+    alternateStack = ::malloc(MINSIGSTKSZ);
+    if (alternateStack == nullptr)
+        std::cerr << "WARNING: Signal handling without alternate stack" << std::endl;
+    
+    if (alternateStack != nullptr)
+    {
+        stkSpec.ss_sp = alternateStack;
+        stkSpec.ss_flags = 0;
+        stkSpec.ss_size = MINSIGSTKSZ;
+        if (sigaltstack(&stkSpec, &oldAltStack) != 0)
+        {
+            ::free(alternateStack);
+            alternateStack = nullptr;
+            std::cerr << "WARNING: Signal handling without alternate stack" << std::endl;
+        }
+        isOldAltStack = true;
+    }
+    
+    sigAct.sa_handler = handleInterrupt;
+    sigAct.sa_flags |= SA_RESETHAND | SA_RESTART;
+    if (isOldAltStack) // alternate stack was estabilished
+        sigAct.sa_flags |= SA_ONSTACK;
+        
+    if (sigaction(SIGINT, &sigAct, nullptr) != 0)
+    {
+        if (isOldAltStack)
+            sigaltstack(&oldAltStack, nullptr);
+        
+        if (alternateStack != nullptr)
+        {
+            ::free(alternateStack);
+            alternateStack = nullptr;
+        }
+        
+        std::cerr << "WARNING: Signal handling not installed!" << std::endl;
+        return;
+    }
+    signalHandlerInstalled = true;
+}
+
+static void uninstallSignals()
+{
+    if (!signalHandlerInstalled)
+        return;
+    
+    if (isOldSigIntAct)
+        sigaction(SIGINT, &oldSigIntAct, nullptr);
+    
+    if (isOldAltStack)
+        sigaltstack(&oldAltStack, nullptr);
+    
+    if (alternateStack != nullptr)
+    {
+        ::free(alternateStack);
+        alternateStack = nullptr;
+    }
+}
+#endif
+
 int main(int argc, const char** argv)
 {
     int cmd;
@@ -287,7 +399,9 @@ int main(int argc, const char** argv)
                 "PLEASE TRACE OUTPUT TO FIND FAILED DEVICE AND REACT!\n" << std::endl;
         if (dontWait==0)
             std::this_thread::sleep_for(std::chrono::milliseconds(8000));
-                
+        
+        installSignals();
+        
         bool ifExitingAtInit = false;
         for (size_t i = 0; i < choosenCLDevices.size(); i++)
         {
@@ -347,6 +461,7 @@ int main(int argc, const char** argv)
                 *outStream << "Finished #" << i << std::endl;
             }
         }
+    
     for (size_t i = 0; i < gpuStressTesters.size(); i++)
     {
         if (gpuStressTesters[i]->isFailed())
@@ -357,6 +472,8 @@ int main(int argc, const char** argv)
         }
         delete gpuStressTesters[i];
     }
+    
+    uninstallSignals();
     
     poptFreeContext(optsContext);
     return retVal;

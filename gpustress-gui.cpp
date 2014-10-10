@@ -35,6 +35,9 @@
 #include <cstdlib>
 #include <csignal>
 #include <climits>
+#ifndef _WINDOWS
+#include <unistd.h>
+#endif
 #include <chrono>
 #include <vector>
 #include <thread>
@@ -1050,7 +1053,7 @@ private:
     
     std::vector<Fl_Text_Buffer*> textBuffers;
     
-    std::vector<std::string> origDeviceNames;
+    std::vector<std::string> origDeviceChoiceLabels;
     MyTextDisplay* logOutput;
     
     Fl_Button* saveLogButton;
@@ -1169,7 +1172,7 @@ void TestLogsGroup::updateDeviceList()
     
     textBuffers.clear();
     deviceChoice->clear();
-    origDeviceNames.clear();
+    origDeviceChoiceLabels.clear();
     
     const DeviceChoiceGroup* devChoiceGroup = guiapp.getDeviceChoiceGroup();
     if (devChoiceGroup->getEnabledDevicesCount() != 0)
@@ -1197,7 +1200,7 @@ void TestLogsGroup::updateDeviceList()
                 label += platformName;
                 label += ":";
                 label += deviceName;
-                origDeviceNames.push_back(escapeForFlLabel(label));
+                origDeviceChoiceLabels.push_back(escapeForFlLabel(label));
                 label = escapeForFlMenu(label);
             
                 deviceChoice->add(label.c_str());
@@ -1299,7 +1302,7 @@ void TestLogsGroup::updateLogs(const std::vector<NewLogsBufQueueElem>& newLogsQu
     {
         guiapp.setTabToTestLogs();
         choiceTestLog(lastToAlert);
-        fl_alert("Failed test for device %s!", origDeviceNames[lastToAlert-1].c_str());
+        fl_alert("Failed test for device %s!", origDeviceChoiceLabels[lastToAlert-1].c_str());
     }
     if (doScroll && isEndAtVScroll)
         logOutput->scroll(maxLogLength, 0);
@@ -1683,8 +1686,8 @@ void GUIApp::mainWinExitCalled(Fl_Widget* widget, void* data)
     }
     
     if (guiapp->isAppExitCalled)
-    {
-        ::raise(SIGTERM);
+    {   // use _exit because SIGTERM can be overriden
+        _exit(0);
         return;
     }
     guiapp->isAppExitCalled = true;
@@ -1743,7 +1746,8 @@ int main(int argc, const char** argv)
     if (printVersion)
     {
 #ifdef _WINDOWS
-        if(AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole()){
+        if(AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole())
+        {
             freopen("CONOUT$", "w", stdout);
             freopen("CONOUT$", "w", stderr);
         }
@@ -1756,7 +1760,8 @@ int main(int argc, const char** argv)
     if (printHelp)
     {
 #ifdef _WINDOWS
-        if(AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole()){
+        if(AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole())
+        {
             freopen("CONOUT$", "w", stdout);
             freopen("CONOUT$", "w", stderr);
         }
@@ -1777,7 +1782,8 @@ int main(int argc, const char** argv)
     if (printUsage)
     {
 #ifdef _WINDOWS
-        if(AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole()){
+        if(AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole())
+        {
             freopen("CONOUT$", "w", stdout);
             freopen("CONOUT$", "w", stderr);
         }
