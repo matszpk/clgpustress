@@ -229,7 +229,8 @@ static void installSignals()
             alternateStack = nullptr;
             std::cerr << "WARNING: Signal handling without alternate stack" << std::endl;
         }
-        isOldAltStack = true;
+        else // successfully changed
+            isOldAltStack = true;
     }
     
     sigAct.sa_handler = handleInterrupt;
