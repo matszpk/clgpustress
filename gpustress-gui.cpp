@@ -1250,7 +1250,8 @@ static void appendToTextBuffetWithLimit(TestLogsGroup::LogBuffer& logBuffer,
                 for (; *newStart != 0; newStart++)
                     if (*newStart == '\n')
                         break;
-                newStart++;
+                if (*newStart == '\n')
+                    newStart++;
             }
             
             textBuffer->append(newStart);
