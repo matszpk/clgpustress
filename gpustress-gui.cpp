@@ -1047,11 +1047,18 @@ static const cxuint maxLogLength = 1000000;
 
 class TestLogsGroup: public Fl_Group
 {
+public:
+    struct LogBuffer
+    {
+        Fl_Text_Buffer* buffer;
+        bool hasNewlineAtEnd;
+    };
 private:
+    
     Fl_File_Chooser* fileChooser;
     Fl_Choice* deviceChoice;
     
-    std::vector<Fl_Text_Buffer*> textBuffers;
+    std::vector<LogBuffer> logBuffers;
     
     std::vector<std::string> origDeviceChoiceLabels;
     MyTextDisplay* logOutput;
@@ -1116,8 +1123,8 @@ TestLogsGroup::~TestLogsGroup()
 {
     delete fileChooser;
     logOutput->buffer(nullptr);
-    for (Fl_Text_Buffer* tbuf: textBuffers)
-        delete tbuf;
+    for (LogBuffer& logBuffer: logBuffers)
+        delete logBuffer.buffer;
 }
 
 void TestLogsGroup::selectedDeviceChanged(Fl_Widget* widget, void* data)
@@ -1126,10 +1133,10 @@ void TestLogsGroup::selectedDeviceChanged(Fl_Widget* widget, void* data)
     TestLogsGroup* t = reinterpret_cast<TestLogsGroup*>(data);
     //
     size_t index = choice->value();
-    if (index >= t->textBuffers.size())
+    if (index >= t->logBuffers.size())
         return;
     
-    t->logOutput->buffer(t->textBuffers[index]);
+    t->logOutput->buffer(t->logBuffers[index].buffer);
     t->logOutput->scroll(maxLogLength, 0);
 }
 
@@ -1137,7 +1144,7 @@ void TestLogsGroup::saveLogCalled(Fl_Widget* widget, void* data)
 {
     TestLogsGroup* t = reinterpret_cast<TestLogsGroup*>(data);
     cxuint index = t->deviceChoice->value();
-    if (index >= t->textBuffers.size())
+    if (index >= t->logBuffers.size())
         return;
     
     t->fileChooser->show();
@@ -1147,10 +1154,10 @@ void TestLogsGroup::saveLogChooserCalled(Fl_File_Chooser* fc, void* data)
 {
     TestLogsGroup* t = reinterpret_cast<TestLogsGroup*>(data);
     cxuint index = t->deviceChoice->value();
-    if (index >= t->textBuffers.size() || fc->value() == nullptr || fc->shown())
+    if (index >= t->logBuffers.size() || fc->value() == nullptr || fc->shown())
         return;
     
-    if (t->textBuffers[index]->savefile(fc->value()))
+    if (t->logBuffers[index].buffer->savefile(fc->value()))
         fl_alert("Can't save log to '%s'!", fc->value());
 }
 
@@ -1158,19 +1165,19 @@ void TestLogsGroup::clearLogCalled(Fl_Widget* widget, void* data)
 {
     TestLogsGroup* t = reinterpret_cast<TestLogsGroup*>(data);
     cxuint index = t->deviceChoice->value();
-    if (index >= t->textBuffers.size())
+    if (index >= t->logBuffers.size())
         return;
     
-    t->textBuffers[index]->remove(0, t->textBuffers[index]->length());
+    t->logBuffers[index].buffer->remove(0, t->logBuffers[index].buffer->length());
 }
 
 void TestLogsGroup::updateDeviceList()
 {
     logOutput->buffer(nullptr);
-    for (Fl_Text_Buffer* tbuf: textBuffers)
-        delete tbuf;
     
-    textBuffers.clear();
+    for (LogBuffer& logBuffer: logBuffers)
+        delete logBuffer.buffer;
+    logBuffers.clear();
     deviceChoice->clear();
     origDeviceChoiceLabels.clear();
     
@@ -1178,7 +1185,7 @@ void TestLogsGroup::updateDeviceList()
     if (devChoiceGroup->getEnabledDevicesCount() != 0)
     {
         deviceChoice->add("All devices");
-        textBuffers.push_back(new Fl_Text_Buffer());
+        logBuffers.push_back({new Fl_Text_Buffer(), false});
         
         size_t j = 0;
         for (size_t i = 0; i < devChoiceGroup->getClDevicesNum(); i++)
@@ -1204,14 +1211,14 @@ void TestLogsGroup::updateDeviceList()
                 label = escapeForFlMenu(label);
             
                 deviceChoice->add(label.c_str());
-                textBuffers.push_back(new Fl_Text_Buffer());
+                logBuffers.push_back({new Fl_Text_Buffer(), false});
             }
         
         deviceChoice->value(0);
         saveLogButton->activate();
         clearLogButton->activate();
         logOutput->activate();
-        logOutput->buffer(textBuffers[0]);
+        logOutput->buffer(logBuffers[0].buffer);
     }
     else
     {
@@ -1221,12 +1228,19 @@ void TestLogsGroup::updateDeviceList()
     }
 }
 
-static void appendToTextBuffetWithLimit(Fl_Text_Buffer* textBuffer,
-                    const std::string& newLogs)
+static void appendToTextBuffetWithLimit(TestLogsGroup::LogBuffer& logBuffer,
+                    std::string& newLogs)
 {
+    Fl_Text_Buffer* textBuffer = logBuffer.buffer;
+    if (logBuffer.hasNewlineAtEnd)
+        textBuffer->append("\n");
+    logBuffer.hasNewlineAtEnd = (newLogs.back() == '\n');
+    if (logBuffer.hasNewlineAtEnd) // remove last newline
+        newLogs.erase(newLogs.size()-1);
+    
     if (textBuffer->length() + newLogs.size() > maxLogLength)
     {
-        if (newLogs.size() > maxLogLength)
+        if (newLogs.size() >= maxLogLength)
         {
             textBuffer->remove(0, textBuffer->length());
             const char* newStart = newLogs.c_str() + newLogs.size()-maxLogLength;
@@ -1271,9 +1285,9 @@ void TestLogsGroup::updateLogs(const std::vector<NewLogsBufQueueElem>& newLogsQu
     cxuint lastToAlert = UINT_MAX;
     
     bool isEndAtVScroll = logOutput->isEndAtVScroll();
-    
+    /* these strings can be modified */
     std::string allLogs;
-    std::vector<std::string> perTBI(textBuffers.size()-1);
+    std::vector<std::string> perTBI(logBuffers.size()-1);
     for (const NewLogsBufQueueElem& elem: newLogsQueue)
     {
         if (elem.logText.empty())
@@ -1293,10 +1307,10 @@ void TestLogsGroup::updateLogs(const std::vector<NewLogsBufQueueElem>& newLogsQu
     }
     
     if (!allLogs.empty())
-        appendToTextBuffetWithLimit(textBuffers[0], allLogs);
+        appendToTextBuffetWithLimit(logBuffers[0], allLogs);
     for (cxuint i = 0; i < perTBI.size(); i++)
         if (!perTBI[i].empty())
-            appendToTextBuffetWithLimit(textBuffers[i+1], perTBI[i]);
+            appendToTextBuffetWithLimit(logBuffers[i+1], perTBI[i]);
     
     if (lastToAlert != UINT_MAX)
     {

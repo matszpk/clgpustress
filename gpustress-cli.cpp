@@ -405,7 +405,9 @@ int main(int argc, const char** argv)
         
         bool ifExitingAtInit = false;
         
-        {   /* create thread for preparing GPUStressTesters */
+        {   /* create thread for preparing GPUStressTesters
+             * avoids catching signals during kernel compilation,
+             * because can cause internal errors */
             std::thread preparingThread(
                 [&retVal,&ifExitingAtInit,&choosenCLDevices,&gpuStressTesters,
                     &gpuStressConfigs]()
