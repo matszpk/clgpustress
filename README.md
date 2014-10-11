@@ -1,7 +1,7 @@
 clgpustress
 ===========
 
-Heavy OpenCL GPU stress tester (version 0.0.9)
+Heavy OpenCL GPU stress tester (version 0.0.9.2)
 
 ### IMPORTANT CAUTION!!!!!
 

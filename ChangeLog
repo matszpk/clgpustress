@@ -1,5 +1,11 @@
 List of the changes:
 
+Version 0.0.9.2 (11.10.2014):
+- fixed buffer overflow at appending log (GUI, very unlikely)
+- removing last newline at logs (GUI)
+- fixed device name escaping at Fatal error message box (GUI)
+- added handling CTRL-C in CLI (force stopping, instead of terminating)
+
 Version 0.0.9 (09.10.2014):
 - fixed escaping of labels in GUI
 - improved log appending (now doesn't hangups when logs are too many)

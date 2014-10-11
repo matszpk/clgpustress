@@ -39,7 +39,7 @@
 #include <CL/cl.hpp>
 #include "gpustress-core.h"
 
-#define PROGRAM_VERSION "0.0.9"
+#define PROGRAM_VERSION "0.0.9.2"
 
 extern const char* testDescsTable[];
 
