@@ -922,6 +922,8 @@ try
 {
     bool run1Exec = false;
     bool run2Exec = false;
+    bool result1Checked = false;
+    bool result2Checked = false;
     std::vector<cl::Event> exec1Events(passItersNum);
     std::vector<cl::Event> exec2Events(passItersNum);
     clKernel.setArg(0, cl_uint(workSize));
@@ -934,11 +936,10 @@ try
         clKernel.setArg(7, examplePoly[4]);
     }
     
-    try
-    {
     cxuint pass1Num = 1;
     cxuint pass2Num = 2;
-    
+    try
+    {
     startTime = lastTime = std::chrono::high_resolution_clock::now();
     
     while (true)
@@ -1023,6 +1024,7 @@ try
             break;
         }
         run1Exec = true;
+        result1Checked = false; // not yet checked
         
         if (run2Exec)
         {   /* after exec2 */
@@ -1057,6 +1059,7 @@ try
                 throwFailedComputations(pass2Num);
             printStatus(pass2Num);
             pass2Num += 2;
+            result2Checked = true; // now is checked
         }
         
         if (stopAllStressTestersIfFail.load())
@@ -1139,6 +1142,7 @@ try
             break;
         }
         run2Exec = true;
+        result2Checked = false; // not yet checked
         
         if (run1Exec)
         {   /* after exec1 */
@@ -1173,6 +1177,7 @@ try
                 throwFailedComputations(pass1Num);
             printStatus(pass1Num);
             pass1Num += 2;
+            result1Checked = true; // now is checked
         }
     }
     }
@@ -1215,31 +1220,59 @@ try
         handleOutput(id);
     }
     
-    /* after break check kernel events */
-    for (cxuint i = 0; i < passItersNum; i++)
-    {   // check kernel event status
-        int eventStatus;
-        if (exec1Events[i]() == nullptr)
-            break; // no other events
-        exec1Events[i].getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
-        if (eventStatus < 0)
-        {
-            char strBuf[64];
-            snprintf(strBuf, 64, "Failed NDRangeKernel with code: %d", eventStatus);
-            throw MyException(strBuf);
+    /* after break check kernel events and results */
+    {
+        cxuint i;
+        for (i = 0; i < passItersNum; i++)
+        {   // check kernel event status
+            int eventStatus;
+            if (exec1Events[i]() == nullptr)
+                break; // no other events
+            exec1Events[i].getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
+            if (eventStatus < 0)
+            {
+                char strBuf[64];
+                snprintf(strBuf, 64, "Failed NDRangeKernel with code: %d", eventStatus);
+                throw MyException(strBuf);
+            }
         }
-    }
-    for (cxuint i = 0; i < passItersNum; i++)
-    {   // check kernel event status
-        int eventStatus;
-        if (exec2Events[i]() == nullptr)
-            break; // no other events
-        exec2Events[i].getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
-        if (eventStatus < 0)
-        {
-            char strBuf[64];
-            snprintf(strBuf, 64, "Failed NDRangeKernel with code: %d", eventStatus);
-            throw MyException(strBuf);
+        if (i == passItersNum && !result1Checked)
+        {   // get results
+            if (!useInputAndOutput || (passItersNum&1) == 0)
+                clCmdQueue2.enqueueReadBuffer(clBuffer1, CL_TRUE, size_t(0), bufItemsNum<<2,
+                            results);
+            else //
+                clCmdQueue2.enqueueReadBuffer(clBuffer2, CL_TRUE, size_t(0), bufItemsNum<<2,
+                            results);
+            if (::memcmp(toCompare, results, bufItemsNum<<2))
+                throwFailedComputations(pass1Num);
+            printStatus(pass1Num);
+        }
+        
+        for (i = 0; i < passItersNum; i++)
+        {   // check kernel event status
+            int eventStatus;
+            if (exec2Events[i]() == nullptr)
+                break; // no other events
+            exec2Events[i].getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
+            if (eventStatus < 0)
+            {
+                char strBuf[64];
+                snprintf(strBuf, 64, "Failed NDRangeKernel with code: %d", eventStatus);
+                throw MyException(strBuf);
+            }
+        }
+        if (i == passItersNum && !result2Checked)
+        {   // get results
+            if (!useInputAndOutput || (passItersNum&1) == 0)
+                clCmdQueue2.enqueueReadBuffer(clBuffer3, CL_TRUE, size_t(0), bufItemsNum<<2,
+                            results);
+            else //
+                clCmdQueue2.enqueueReadBuffer(clBuffer4, CL_TRUE, size_t(0), bufItemsNum<<2,
+                            results);
+            if (::memcmp(toCompare, results, bufItemsNum<<2))
+                throwFailedComputations(pass2Num);
+            printStatus(pass2Num);
         }
     }
 }
