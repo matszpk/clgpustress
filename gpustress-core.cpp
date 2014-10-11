@@ -1196,6 +1196,8 @@ try
         }
         throw;
     }
+    
+    /* finish all queues */
     try
     { clCmdQueue1.finish(); }
     catch(...)
@@ -1211,6 +1213,34 @@ try
         std::lock_guard<std::mutex> l(stdOutputMutex);
         *errStream << "Failed on CommandQueue2 finish" << std::endl;
         handleOutput(id);
+    }
+    
+    /* after break check kernel events */
+    for (cxuint i = 0; i < passItersNum; i++)
+    {   // check kernel event status
+        int eventStatus;
+        if (exec1Events[i]() == nullptr)
+            break; // no other events
+        exec1Events[i].getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
+        if (eventStatus < 0)
+        {
+            char strBuf[64];
+            snprintf(strBuf, 64, "Failed NDRangeKernel with code: %d", eventStatus);
+            throw MyException(strBuf);
+        }
+    }
+    for (cxuint i = 0; i < passItersNum; i++)
+    {   // check kernel event status
+        int eventStatus;
+        if (exec2Events[i]() == nullptr)
+            break; // no other events
+        exec2Events[i].getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
+        if (eventStatus < 0)
+        {
+            char strBuf[64];
+            snprintf(strBuf, 64, "Failed NDRangeKernel with code: %d", eventStatus);
+            throw MyException(strBuf);
+        }
     }
 }
 catch(const cl::Error& error)
