@@ -355,38 +355,25 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
     chGrp->resizable(chooseFromListRadio);
     chGrp->end();
     
-    if (devicesListString == nullptr)
-        chooseByFilterRadio->setonly();
-    else
-        chooseFromListRadio->setonly();
-    
     byFilterGroup = new Fl_Group(10, 55, 200, 360);
     Fl_Group* grp = new Fl_Group(10, 75, 200, 110, "Platform select:");
     grp->box(FL_THIN_UP_FRAME);
     grp->align(FL_ALIGN_TOP_LEFT);
     useAllPlatformsButton = new Fl_Check_Button(15, 80, 190, 25, "A&ll platforms");
     useAllPlatformsButton->tooltip("Choose all OpenCL platforms");
-    if (useAllPlatforms != 0)
-        useAllPlatformsButton->set();
     useAllPlatformsButton->callback(&DeviceChoiceGroup::byFilterChanged, this);
     
     useAMDButton = new Fl_Check_Button(15, 105, 190, 25, "&AMD Platforms");
     useAMDButton->tooltip("Choose AMD APP Platforms");
     useAMDButton->callback(&DeviceChoiceGroup::byFilterChanged, this);
-    if (useAMDPlatform != 0)
-        useAMDButton->set();
     
     useNVIDIAButton = new Fl_Check_Button(15, 130, 190, 25, "&NVIDIA Platforms");
     useNVIDIAButton->tooltip("Choose NVIDIA OpenCL Platforms");    
     useNVIDIAButton->callback(&DeviceChoiceGroup::byFilterChanged, this);
-    if (useNVIDIAPlatform != 0)
-        useNVIDIAButton->set();
     
     useIntelButton = new Fl_Check_Button(15, 155, 190, 25, "&Intel Platforms");
     useIntelButton->tooltip("Choose Intel OpenCL Platforms");    
     useIntelButton->callback(&DeviceChoiceGroup::byFilterChanged, this);
-    if (useIntelPlatform != 0)
-        useIntelButton->set();    
     grp->end();
         
     grp = new Fl_Group(10, 205, 200, 85, "Device type select:");
@@ -395,28 +382,19 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
     useCPUsButton = new Fl_Check_Button(15, 210, 190, 25, "&CPU devices");
     useCPUsButton->tooltip("Choose all processors");
     useCPUsButton->callback(&DeviceChoiceGroup::byFilterChanged, this);
-    if (useCPUs != 0)
-        useCPUsButton->set();
     
     useGPUsButton = new Fl_Check_Button(15, 235, 190, 25, "&GPU devices");
     useGPUsButton->tooltip("Choose all GPUs");
     useGPUsButton->callback(&DeviceChoiceGroup::byFilterChanged, this);
-    if (useGPUs != 0)
-        useGPUsButton->set();
     
     useAccsButton = new Fl_Check_Button(15, 260, 190, 25, "Acc&elerator devices");
     useAccsButton->tooltip("Choose all Accelerators");
     useAccsButton->callback(&DeviceChoiceGroup::byFilterChanged, this);
-    if (useAccelerators != 0)
-        useAccsButton->set();
     grp->end();
     
     Fl_Box* box = new Fl_Box(10, 295, 200, 65);
     byFilterGroup->resizable(box);
     byFilterGroup->end();
-    
-    if (devicesListString != nullptr)
-        byFilterGroup->deactivate();
     
     devicesTree = new Fl_Tree(220, 75, 530, 315, "Devices list");
     devicesTree->align(FL_ALIGN_TOP_LEFT);
@@ -502,6 +480,30 @@ DeviceChoiceGroup::DeviceChoiceGroup(const std::vector<cl::Device>& inClDevices,
 
 void DeviceChoiceGroup::initialChoice(const std::vector<cl::Device>& inClDevices)
 {
+    if (devicesListString == nullptr)
+        chooseByFilterRadio->setonly();
+    else
+    {
+        chooseFromListRadio->setonly();
+        byFilterGroup->deactivate();
+    }
+    
+    if (useAllPlatforms != 0)
+        useAllPlatformsButton->set();
+    if (useAMDPlatform != 0)
+        useAMDButton->set();
+    if (useNVIDIAPlatform != 0)
+        useNVIDIAButton->set();
+    if (useIntelPlatform != 0)
+        useIntelButton->set();
+    
+    if (useCPUs != 0)
+        useCPUsButton->set();
+    if (useGPUs != 0)
+        useGPUsButton->set();
+    if (useAccelerators != 0)
+        useAccsButton->set();
+    
     if (devicesListString != nullptr)
     {   /* enable choosen devices from command line */
         std::set<cl_device_id> inClDeviceIDsSet;

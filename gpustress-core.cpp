@@ -941,7 +941,8 @@ try
     
     startTime = lastTime = std::chrono::high_resolution_clock::now();
     
-    do {
+    while (true)
+    {
         if (stopAllStressTestersIfFail.load())
         {
             std::lock_guard<std::mutex> l(stdOutputMutex);
@@ -1173,7 +1174,7 @@ try
             printStatus(pass1Num);
             pass1Num += 2;
         }
-    } while (run1Exec || run2Exec);
+    }
     }
     catch(...)
     {   /* wait for finish kernels */
