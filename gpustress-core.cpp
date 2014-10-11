@@ -1202,6 +1202,7 @@ try
         throw;
     }
     
+    bool queuesFinished = true;
     /* finish all queues */
     try
     { clCmdQueue1.finish(); }
@@ -1210,6 +1211,7 @@ try
         std::lock_guard<std::mutex> l(stdOutputMutex);
         *errStream << "Failed on CommandQueue1 finish" << std::endl;
         handleOutput(id);
+        queuesFinished = false;
     }
     try
     { clCmdQueue2.finish(); }
@@ -1218,7 +1220,11 @@ try
         std::lock_guard<std::mutex> l(stdOutputMutex);
         *errStream << "Failed on CommandQueue2 finish" << std::endl;
         handleOutput(id);
+        queuesFinished = false;
     }
+    
+    if (!queuesFinished)
+        return; // if queues failed do not check (only returns)
     
     /* after break check kernel events and results */
     {
