@@ -873,7 +873,7 @@ void TestConfigsGroup::copyToAllDevicesCalled(Fl_Widget* widget, void* data)
 {
     TestConfigsGroup* t = reinterpret_cast<TestConfigsGroup*>(data);
     
-    const GPUStressConfig& src = t->allConfigsMap[t->curClDeviceID];
+    const GPUStressConfig& src = t->allConfigsMap.find(t->curClDeviceID)->second;
     for (cl_device_id devId: t->choosenClDeviceIDs)
         if (devId != t->curClDeviceID)
             t->allConfigsMap.find(devId)->second = src;
@@ -883,7 +883,7 @@ void TestConfigsGroup::copyToTheseSameCalled(Fl_Widget* widget, void* data)
 {
     TestConfigsGroup* t = reinterpret_cast<TestConfigsGroup*>(data);
     
-    const GPUStressConfig& src = t->allConfigsMap[t->curClDeviceID];
+    const GPUStressConfig& src = t->allConfigsMap.find(t->curClDeviceID)->second;
     cl::Device curClDevice(t->curClDeviceID);
     std::string targetDevName;
     cl::Platform targetPlatform;
@@ -1023,7 +1023,7 @@ void TestConfigsGroup::updateDeviceList()
         else
             deviceChoice->value(0);
         singleConfigGroup->setConfig(cl::Device(curClDeviceID),
-                    allConfigsMap[curClDeviceID]);
+                    allConfigsMap.find(curClDeviceID)->second);
         singleConfigGroup->activate();
     }
     else // empty
@@ -1041,7 +1041,7 @@ void TestConfigsGroup::updateDeviceList()
     }
 }
 
-static const cxuint maxLogLength = 1000000;
+static const cxuint maxLogLength = 1000000U;
 
 /*
  * Test logs group class
