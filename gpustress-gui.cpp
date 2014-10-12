@@ -1054,6 +1054,11 @@ public:
     {
         Fl_Text_Buffer* buffer;
         bool hasNewlineAtEnd;
+        
+        LogBuffer() { }
+        LogBuffer(Fl_Text_Buffer* _b, bool _hnl)
+            : buffer(_b), hasNewlineAtEnd(_hnl)
+        { }
     };
 private:
     
@@ -1187,7 +1192,7 @@ void TestLogsGroup::updateDeviceList()
     if (devChoiceGroup->getEnabledDevicesCount() != 0)
     {
         deviceChoice->add("All devices");
-        logBuffers.push_back({new Fl_Text_Buffer(), false});
+        logBuffers.push_back(LogBuffer(new Fl_Text_Buffer(), false));
         
         size_t j = 0;
         for (size_t i = 0; i < devChoiceGroup->getClDevicesNum(); i++)
@@ -1213,7 +1218,7 @@ void TestLogsGroup::updateDeviceList()
                 label = escapeForFlMenu(label);
             
                 deviceChoice->add(label.c_str());
-                logBuffers.push_back({new Fl_Text_Buffer(), false});
+                logBuffers.push_back(LogBuffer(new Fl_Text_Buffer(), false));
             }
         
         deviceChoice->value(0);
@@ -1703,10 +1708,8 @@ void GUIApp::mainWinExitCalled(Fl_Widget* widget, void* data)
     }
     
     if (guiapp->isAppExitCalled)
-    {   // use _exit because SIGTERM can be overriden
-        _exit(0);
-        return;
-    }
+        _exit(0); // use _exit because SIGTERM can be overriden
+    
     guiapp->isAppExitCalled = true;
     // normal exit
     if (guiapp->mainStressThread != nullptr)
