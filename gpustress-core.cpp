@@ -969,10 +969,14 @@ try
         }
         
         cxuint stepsAfterWait = 0;
+        bool allIsExecuted = true;
         for (cxuint i = 0; i < passItersNum; i++)
         {
             if (stopAllStressTestersIfFail.load() || stopAllStressTestersByUser.load())
+            {
+                allIsExecuted = false;
                 break;
+            }
             if (useInputAndOutput)
             {
                 if ((i&1) == 0)
@@ -1009,6 +1013,11 @@ try
                 }
             }
         }
+        if (allIsExecuted)
+        {
+            run1Exec = true;
+            result1Checked = false; // not yet checked
+        }
         if (stopAllStressTestersIfFail.load())
         {
             std::lock_guard<std::mutex> l(stdOutputMutex);
@@ -1023,8 +1032,6 @@ try
             handleOutput(id);
             break;
         }
-        run1Exec = true;
-        result1Checked = false; // not yet checked
         
         if (run2Exec)
         {   /* after exec2 */
@@ -1087,10 +1094,14 @@ try
         }
         
         stepsAfterWait = 0;
+        allIsExecuted = true;
         for (cxuint i = 0; i < passItersNum; i++)
         {
             if (stopAllStressTestersIfFail.load() || stopAllStressTestersByUser.load())
+            {
+                allIsExecuted = false;
                 break;
+            }
             if (useInputAndOutput)
             {
                 if ((i&1) == 0)
@@ -1127,6 +1138,11 @@ try
                 }
             }
         }
+        if (allIsExecuted)
+        {
+            run2Exec = true;
+            result2Checked = false; // not yet checked
+        }
         if (stopAllStressTestersIfFail.load())
         {
             std::lock_guard<std::mutex> l(stdOutputMutex);
@@ -1141,8 +1157,6 @@ try
             handleOutput(id);
             break;
         }
-        run2Exec = true;
-        result2Checked = false; // not yet checked
         
         if (run1Exec)
         {   /* after exec1 */
