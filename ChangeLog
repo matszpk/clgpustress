@@ -1,11 +1,11 @@
 List of the changes:
 
 Version 0.0.9.2 (12.10.2014):
-- fixed reading after buffer end during appending log (GUI, very unlikely)
-- removing last newline at logs (GUI)
-- fixed device name escaping at Fatal error message box (GUI)
+- fixed buffer overflow (only reading) while an appending to log (GUI, very unlikely)
+- removing last newline in logs (GUI)
+- fixed device name escaping at fatal error message box (GUI)
 - added handling CTRL-C in CLI (force stopping, instead of terminating)
-- always check results of the last pass after tests
+- always check results of last pass after tests
 
 Version 0.0.9 (09.10.2014):
 - fixed escaping of labels in GUI
