@@ -873,7 +873,8 @@ void GPUStressTester::printStatus(cxuint passNum)
 {
     if ((passNum%10) != 0)
         return;
-    const time_point currentTime = SteadyClock::now();
+    const rt_time_point rtCurrentTime = RealtimeClock::now();
+    const std_time_point currentTime = SteadyClock::now();
     const int64_t nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(
                 currentTime-lastTime).count();
     lastTime = currentTime;
@@ -888,7 +889,7 @@ void GPUStressTester::printStatus(cxuint passNum)
                 / double(nanos);
     
     const int64_t startMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
-                currentTime-startTime).count();
+                rtCurrentTime-startTime).count();
     char timeStrBuf[128];
     snprintf(timeStrBuf, 128, "%u:%02u:%02u.%03u", cxuint(startMillis/3600000),
              cxuint((startMillis/60000)%60), cxuint((startMillis/1000)%60),
@@ -904,7 +905,7 @@ void GPUStressTester::printStatus(cxuint passNum)
 
 void GPUStressTester::throwFailedComputations(cxuint passNum)
 {
-    const time_point currentTime = SteadyClock::now();
+    const rt_time_point currentTime = RealtimeClock::now();
     const int64_t startMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
                 currentTime-startTime).count();
     char strBuf[128];
@@ -940,7 +941,8 @@ try
     cxuint pass2Num = 2;
     try
     {
-    startTime = lastTime = SteadyClock::now();
+    startTime = RealtimeClock::now();
+    lastTime = SteadyClock::now();
     
     while (true)
     {

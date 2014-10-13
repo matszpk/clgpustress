@@ -33,10 +33,11 @@
 #include <CL/cl.hpp>
 
 #if defined(_WINDOWS) && defined(_MSC_VER)
-// workaround for MSVC 2012
 typedef std::chrono::system_clock SteadyClock;
+typedef std::chrono::system_clock RealtimeClock;
 #else
 typedef std::chrono::steady_clock SteadyClock;
+typedef std::chrono::system_clock RealtimeClock;
 #endif
 
 typedef unsigned short cxushort;
@@ -126,12 +127,13 @@ private:
     std::string platformName;
     std::string deviceName;
     
-    typedef std::chrono::time_point<SteadyClock> time_point;
+    typedef std::chrono::time_point<RealtimeClock> rt_time_point;
+    typedef std::chrono::time_point<SteadyClock> std_time_point;
     
     cxuint stepsPerWait;
     
-    time_point startTime;
-    time_point lastTime;
+    rt_time_point startTime;
+    std_time_point lastTime;
     
     cl::CommandQueue clCmdQueue1, clCmdQueue2;
     
