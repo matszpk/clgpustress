@@ -32,6 +32,13 @@
 #include <atomic>
 #include <CL/cl.hpp>
 
+#if defined(_WINDOWS) && defined(_MSC_VER)
+// workaround for MSVC 2012
+typedef std::chrono::system_clock SteadyClock;
+#else
+typedef std::chrono::steady_clock SteadyClock;
+#endif
+
 typedef unsigned short cxushort;
 typedef signed short cxshort;
 typedef unsigned int cxuint;
@@ -119,7 +126,7 @@ private:
     std::string platformName;
     std::string deviceName;
     
-    typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point;
+    typedef std::chrono::time_point<SteadyClock> time_point;
     
     cxuint stepsPerWait;
     

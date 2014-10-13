@@ -35,7 +35,9 @@
 #include <cstdlib>
 #include <csignal>
 #include <climits>
-#ifndef _WINDOWS
+#ifdef _WINDOWS
+#include <io.h>
+#else
 #include <unistd.h>
 #endif
 #include <chrono>
@@ -209,7 +211,7 @@ struct NewLogsBufQueueElem
 class GUIApp
 {
 private:
-    typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point;
+    typedef std::chrono::time_point<SteadyClock> time_point;
     time_point lastLogTime;
     
     std::vector<NewLogsBufQueueElem> newLogsQueue;
@@ -1164,8 +1166,22 @@ void TestLogsGroup::saveLogChooserCalled(Fl_File_Chooser* fc, void* data)
     if (index >= t->logBuffers.size() || fc->value() == nullptr || fc->shown())
         return;
     
+#ifdef _WINDOWS
+    if (::access(fc->value(), 0) == 0)
+#else
+    if (::access(fc->value(), F_OK) == 0)
+#endif
+    {
+        if (fl_choice("Do you want to save log to an existing file?",
+                    "No", "Yes", nullptr) == 0)
+            return;
+    }
+    
     if (t->logBuffers[index].buffer->savefile(fc->value()))
-        fl_alert("Can't save log to '%s'!", fc->value());
+    {
+        std::string escapedStr = escapeForFlLabel(fc->value());
+        fl_alert("Can't save log to file '%s'!", escapedStr.c_str());
+    }
 }
 
 void TestLogsGroup::clearLogCalled(Fl_Widget* widget, void* data)
@@ -1296,15 +1312,20 @@ void TestLogsGroup::updateLogs(const std::vector<NewLogsBufQueueElem>& newLogsQu
     /* these strings can be modified */
     std::string allLogs;
     std::vector<std::string> perTBI(logBuffers.size()-1);
+    
     for (const NewLogsBufQueueElem& elem: newLogsQueue)
     {
         if (elem.logText.empty())
             continue;
         
-        doScroll = true;
+        // enable scroll to end only if current is changed
+        doScroll |= (deviceChoice->value() == 0);
         allLogs += elem.logText;
         if (elem.textBufferIndex != 0)
+        {   // enable scroll to end only if current is changed
+            doScroll |= (elem.textBufferIndex == cxuint(deviceChoice->value()));
             perTBI[elem.textBufferIndex-1] += elem.logText;
+        }
         
         if (elem.logText.compare(0, 23, "Failed StressTester for") == 0)
         {
@@ -1320,14 +1341,14 @@ void TestLogsGroup::updateLogs(const std::vector<NewLogsBufQueueElem>& newLogsQu
         if (!perTBI[i].empty())
             appendToTextBuffetWithLimit(logBuffers[i+1], perTBI[i]);
     
+    if (doScroll && isEndAtVScroll)
+        logOutput->scroll(maxLogLength, 0);
     if (lastToAlert != UINT_MAX)
     {
         guiapp.setTabToTestLogs();
         choiceTestLog(lastToAlert);
         fl_alert("Failed test for device %s!", origDeviceChoiceLabels[lastToAlert-1].c_str());
     }
-    if (doScroll && isEndAtVScroll)
-        logOutput->scroll(maxLogLength, 0);
 }
 
 void TestLogsGroup::choiceTestLog(cxuint index)
@@ -1460,7 +1481,7 @@ bool GUIApp::run()
 void GUIApp::handleOutput(void* data, cxuint id)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
-    const time_point currentTime = std::chrono::high_resolution_clock::now();
+    const time_point currentTime = SteadyClock::now();
     const int64_t nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(
                 currentTime-guiapp->lastLogTime).count();
     
@@ -1499,7 +1520,7 @@ void GUIApp::updateLogsRepeatedly(void* data)
     std::vector<NewLogsBufQueueElem> curLogsQueue;
     {
         std::lock_guard<std::mutex> l(stdOutputMutex);
-        guiapp->lastLogTime = std::chrono::high_resolution_clock::now();
+        guiapp->lastLogTime = SteadyClock::now();
         curLogsQueue = guiapp->newLogsQueue;
         guiapp->newLogsQueue.clear();
     }
@@ -1579,7 +1600,7 @@ void GUIApp::runStress()
     std::vector<GPUStressTester*> gpuStressTesters;
     std::vector<std::thread*> testerThreads;
     
-    lastLogTime = std::chrono::high_resolution_clock::now();
+    lastLogTime = SteadyClock::now();
     
     try
     {
