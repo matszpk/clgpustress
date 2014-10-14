@@ -25,6 +25,8 @@
 
 #ifdef _WINDOWS
 #include <windows.h>
+#else
+#include <X11/xpm.h>
 #endif
 #include <iostream>
 #include <ostream>
@@ -75,6 +77,10 @@
 
 #define PROGRAM_VERSION "0.0.9.2"
 
+#ifndef _WINDOWS
+#include "icon.xpm"
+#endif
+
 extern const char* testDescsTable[];
 
 static const char* devicesListString = nullptr;
@@ -88,6 +94,10 @@ static const char* kitersNumsString = nullptr;
 static int printHelp = 0;
 static int printUsage = 0;
 static int printVersion = 0;
+
+static int progArgc = 9;
+static const char* progArgv[10] = { "gpustress-gui", "-scheme", "standard", "-bg", "#c0c0c0",
+    "-bg2", "#ffffff", "-fg", "#000000", 0 };
 
 static const poptOption optionsTable[] =
 {
@@ -1371,7 +1381,17 @@ try
     updateTimerIsRun.store(false);
     mainStressThread = nullptr;
     
+#ifdef _WINDOWS
+    char* iconData = (char *)LoadIcon(fl_display, MAKEINTRESOURCE(101));
+#else
+    Pixmap iconData, mask;
+    fl_open_display();
+    XpmCreatePixmapFromData(fl_display, DefaultRootWindow(fl_display),
+                                 (char**)icon_xpm, &iconData, &mask, NULL);
+#endif
+    
     alertWin = new Fl_Window(600, 150, "GPUStress Caution!");
+    alertWin->icon((char*)iconData);
     alertWin->set_modal();
     Fl_Box* alertMessage = new Fl_Box(10, 10, 580, 100);
     alertMessage->align(FL_ALIGN_INSIDE|FL_ALIGN_TOP_LEFT);
@@ -1389,6 +1409,7 @@ try
     alertWin->end();
     
     mainWin = new Fl_Window(760, 465, "GPUStress GUI " PROGRAM_VERSION);
+    mainWin->icon((char*)iconData);
     mainWin->size_range(600, 410, 0, 0);
     mainTabs = new Fl_Tabs(0, 0, 760, 400);
     deviceChoiceGrp = new DeviceChoiceGroup(clDevices, *this);
@@ -1458,8 +1479,8 @@ void GUIApp::updateGlobal()
 bool GUIApp::run()
 {
     Fl::lock();
-    mainWin->show();
-    alertWin->show();
+    mainWin->show(progArgc, (char**)progArgv);
+    alertWin->show(progArgc, (char**)progArgv);
     int ret = Fl::run();
     if (ret != 0)
     {

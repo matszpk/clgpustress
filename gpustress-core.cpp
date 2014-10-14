@@ -62,8 +62,12 @@ namespace
     static int64_t initGFrequency()
     {
         LARGE_INTEGER w;
+        OSVERSIONINFO verInfo;
+        GetVersionEx(&verInfo);
         if (!QueryPerformanceFrequency(&w) || w.QuadPart==0 ||
-            w.QuadPart >= 100000000ULL)
+            /* trust QPC from Vista or later Windows,
+             * otherwise check whether based on TSC (if yes we do not use) */
+            (verInfo.dwMajorVersion < 6 && w.QuadPart >= 100000000ULL))
             return 0;
         return w.QuadPart;
     }

@@ -22,7 +22,7 @@ GUILDFLAGS = "comctl32.lib" "kernel32.lib" "user32.lib" \
 gpustress-cli.exe: gpustress-cli.obj gpustress-core.obj clkernels.obj
 	$(CXX) $(LDFLAGS) $(CXXFLAGS) $** $(POPTLIB) $(OPENCLLIB)
 
-gpustress-gui.exe: gpustress-gui.obj gpustress-core.obj clkernels.obj
+gpustress-gui.exe: gpustress-gui.obj gpustress-core.obj clkernels.obj gpustress-gui.res
 	$(CXX) $(LDFLAGS) $(CXXFLAGS) $** $(POPTLIB) $(OPENCLLIB) $(GUILDFLAGS) 
 
 .cpp.obj:
