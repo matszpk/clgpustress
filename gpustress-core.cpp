@@ -28,6 +28,9 @@
 #include <cstring>
 #include <utility>
 #include <set>
+#ifdef _WINDOWS
+#include <windows.h>
+#endif
 #include "gpustress-core.h"
 
 #ifdef _MSC_VER
@@ -52,6 +55,42 @@ const char* MyException::what() const throw()
 {
     return message.c_str();
 }
+
+#if defined(_WINDOWS) && defined(_MSC_VER)
+namespace
+{
+    static int64_t initGFrequency()
+    {
+        LARGE_INTEGER w;
+        if (!QueryPerformanceFrequency(&w) || w.QuadPart==0 ||
+            w.QuadPart >= 100000000ULL)
+            return 0;
+        return w.QuadPart;
+    }
+    static const int64_t g_Frequency = initGFrequency();
+};
+
+SteadyClock::time_point SteadyClock::now()
+{
+    if (g_Frequency == 0)
+        return time_point(std::chrono::duration_cast<duration>(
+            std::chrono::system_clock::now().time_since_epoch()));
+    
+    LARGE_INTEGER w;
+    if (!QueryPerformanceCounter(&w))
+        throw MyException("Cant get QPC clock time!");
+    
+    const int64_t lx = w.LowPart * static_cast<rep>(period::den);
+    const int64_t lp = lx / g_Frequency;
+    const int64_t lmod = lx - lp*g_Frequency;
+    const int64_t x = (int64_t(1)<<32) * static_cast<rep>(period::den);
+    const int64_t ih = x/g_Frequency;
+    const int64_t hmod = x-ih*g_Frequency;
+    const int64_t f = lp + int64_t(w.HighPart)*ih +
+            (int64_t(w.HighPart)*hmod + lmod)/g_Frequency;
+    return time_point(duration(f));
+}
+#endif
 
 std::string trimSpaces(const std::string& s)
 {
@@ -874,10 +913,10 @@ void GPUStressTester::printStatus(cxuint passNum)
     if ((passNum%10) != 0)
         return;
     const rt_time_point rtCurrentTime = RealtimeClock::now();
-    const std_time_point currentTime = SteadyClock::now();
+    const std_time_point stdCurrentTime = SteadyClock::now();
     const int64_t nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                currentTime-lastTime).count();
-    lastTime = currentTime;
+                stdCurrentTime-lastTime).count();
+    lastTime = stdCurrentTime;
     
     double bandwidth, perf;
     bandwidth = 2.0*10.0*4.0*double(passItersNum)*double(bufItemsNum) / double(nanos);
@@ -888,8 +927,9 @@ void GPUStressTester::printStatus(cxuint passNum)
         perf = 10.0*8.0*double(kitersNum)*double(passItersNum)*double(bufItemsNum)
                 / double(nanos);
     
-    const int64_t startMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
-                rtCurrentTime-startTime).count();
+    const int64_t startMillis = std::max(int64_t(0),
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+                rtCurrentTime-startTime).count());
     char timeStrBuf[128];
     snprintf(timeStrBuf, 128, "%u:%02u:%02u.%03u", cxuint(startMillis/3600000),
              cxuint((startMillis/60000)%60), cxuint((startMillis/1000)%60),
@@ -906,8 +946,9 @@ void GPUStressTester::printStatus(cxuint passNum)
 void GPUStressTester::throwFailedComputations(cxuint passNum)
 {
     const rt_time_point currentTime = RealtimeClock::now();
-    const int64_t startMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
-                currentTime-startTime).count();
+    const int64_t startMillis = std::max(int64_t(0),
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                currentTime-startTime).count());
     char strBuf[128];
     snprintf(strBuf, 128,
              "FAILED COMPUTATIONS!!!! PASS #%u, Elapsed time: %u:%02u:%02u.%03u",

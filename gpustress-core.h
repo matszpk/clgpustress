@@ -33,7 +33,16 @@
 #include <CL/cl.hpp>
 
 #if defined(_WINDOWS) && defined(_MSC_VER)
-typedef std::chrono::system_clock SteadyClock;
+struct SteadyClock
+{
+    typedef int64_t rep;
+    typedef std::nano period;
+    typedef std::chrono::duration<rep,period> duration;
+    typedef std::chrono::time_point<SteadyClock> time_point;
+    static const bool is_steady = true;
+    static time_point now();
+};
+
 typedef std::chrono::system_clock RealtimeClock;
 #else
 typedef std::chrono::steady_clock SteadyClock;

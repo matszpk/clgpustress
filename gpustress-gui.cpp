@@ -1478,6 +1478,7 @@ bool GUIApp::run()
     return true;
 }
 
+// run in GPUStress test thread
 void GUIApp::handleOutput(void* data, cxuint id)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
@@ -1514,6 +1515,7 @@ void GUIApp::handleOutputAwake(void* data)
     delete odata;
 }
 
+// run in GUI (main) thread
 void GUIApp::updateLogsRepeatedly(void* data)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
