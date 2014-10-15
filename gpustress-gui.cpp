@@ -29,6 +29,7 @@
 #include <X11/xpm.h>
 #endif
 #include <algorithm>
+#include <iterator>
 #include <iostream>
 #include <ostream>
 #include <sstream>
@@ -1640,8 +1641,13 @@ void GUIApp::handleOutputAwake(void* data)
                 forStupidWindows->queuedODatas.end(), data);
         if (it == forStupidWindows->queuedODatas.end())
             doIt = false;
-        std::copy(forStupidWindows->queuedODatas.begin(), it, vodata.begin());
-        forStupidWindows->queuedODatas.erase(it);
+        
+        auto binserter = std::back_inserter(vodata);
+        std::copy(forStupidWindows->queuedODatas.begin(), it, binserter);
+        if (it != forStupidWindows->queuedODatas.end())
+            forStupidWindows->queuedODatas.erase(forStupidWindows->queuedODatas.begin(), ++it);
+        else
+            forStupidWindows->queuedODatas.clear();
     }
     guiapp = forStupidWindows;
     for (HandleOutputData* xodata: vodata)
