@@ -97,7 +97,7 @@ static int printVersion = 0;
 
 static int progArgc = 9;
 static const char* progArgv[10] = { "gpustress-gui", "-scheme", "standard", "-bg", "#c0c0c0",
-    "-bg2", "#ffffff", "-fg", "#000000", 0 };
+    "-bg2", "#ffffff", "-fg", "#000000", nullptr };
 
 static const poptOption optionsTable[] =
 {
@@ -250,6 +250,14 @@ private:
     std::ostringstream logOutputStream;
     
     std::thread* mainStressThread;
+#if defined(_WINDOWS) && defined(_MSC_VER)
+    Fl_Window* verQPCWin;
+    std::thread* verQPCThread;
+    bool resultOfQPCVerif;
+    
+    static void verQPCFinished(void* data);
+    static void verQPCWinButtonCalled(Fl_Widget* w, void* data);
+#endif
     
     bool isAppExitCalled;
     bool doExitAfterStop;
@@ -1380,6 +1388,10 @@ try
     isAppExitCalled = false;
     updateTimerIsRun.store(false);
     mainStressThread = nullptr;
+#if defined(_WINDOWS) && defined(_MSC_VER)
+    verQPCThread = nullptr;
+    verQPCWin = nullptr;
+#endif
     
 #ifdef _WINDOWS
     char* iconData = (char *)LoadIcon(fl_display, MAKEINTRESOURCE(101));
@@ -1448,6 +1460,24 @@ try
     installOutputHandler(&logOutputStream, &logOutputStream, &GUIApp::handleOutput, this);
     deviceChoiceGrp->initialChoice(clDevices);
     updateGlobal();
+#if defined(_WINDOWS) && defined(_MSC_VER)
+    if (isQPCClockChoosen())
+    {
+        verQPCWin = new Fl_Window(400, 60, "Checking QPC...");
+        verQPCWin->set_modal();
+        verQPCWin->callback([](Fl_Widget* w, void* data)
+        {
+            GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
+            if (guiapp->verQPCThread == nullptr)
+                w->hide();
+        }, this);
+        Fl_Box* msgLabel = new Fl_Box(0, 0, 400, 30, "Verifying QPC clock...");
+        Fl_Return_Button* button = new Fl_Return_Button(300, 30, 80, 20, "Close");
+        button->callback(&GUIApp::verQPCWinButtonCalled, this);
+        button->hide();
+        verQPCWin->end();
+    }
+#endif
 }
 catch(...)
 {
@@ -1463,6 +1493,11 @@ GUIApp::~GUIApp()
         stopAllStressTestersByUser.store(true);
         mainStressThread->join();
     }
+#if defined(_WINDOWS) && defined(_MSC_VER)
+    if (verQPCThread != nullptr)
+        verQPCThread->join();
+    delete verQPCWin;
+#endif
     delete mainWin;
     delete alertWin;
 }
@@ -1481,6 +1516,21 @@ bool GUIApp::run()
     Fl::lock();
     mainWin->show(progArgc, (char**)progArgv);
     alertWin->show(progArgc, (char**)progArgv);
+#if defined(_WINDOWS) && defined(_MSC_VER)
+    if (verQPCWin != nullptr)
+    {
+        verQPCWin->show(progArgc, (char**)progArgv);
+        GUIApp* guiapp = this;
+        // fallback for stupid Windows (sometimes awake doesnt work)
+        Fl::add_timeout(2.1, &GUIApp::verQPCFinished, this);
+        
+        verQPCThread = new std::thread([guiapp]()
+        {
+            guiapp->resultOfQPCVerif = verifyQPCClock();
+            while (Fl::awake(&GUIApp::verQPCFinished, guiapp)!=0);
+        });
+    }
+#endif
     int ret = Fl::run();
     if (ret != 0)
     {
@@ -1498,6 +1548,38 @@ bool GUIApp::run()
     }
     return true;
 }
+
+#if defined(_WINDOWS) && defined(_MSC_VER)
+void GUIApp::verQPCFinished(void* data)
+{
+    GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
+    if (guiapp->verQPCThread != nullptr)
+        guiapp->verQPCThread->join();
+    else // already handled
+        return;
+    delete guiapp->verQPCThread;
+    guiapp->verQPCThread = nullptr;
+    
+    Fl::remove_timeout(&GUIApp::verQPCFinished, guiapp);
+    
+    if (guiapp->resultOfQPCVerif)
+        guiapp->verQPCWin->hide(); // if ok
+    else
+    {   // if failed
+        Fl_Box* msgLabel = reinterpret_cast<Fl_Box*>(guiapp->verQPCWin->child(0));
+        msgLabel->label("Verifying QPC clock... FAILED.\nUsing standard system clock.");
+        Fl_Return_Button* button = reinterpret_cast<Fl_Return_Button*>(
+                    guiapp->verQPCWin->child(1));
+        button->show();
+    }
+}
+
+void GUIApp::verQPCWinButtonCalled(Fl_Widget* w, void* data)
+{
+    GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
+    guiapp->verQPCWin->hide();
+}
+#endif
 
 // run in GPUStress test thread
 void GUIApp::handleOutput(void* data, cxuint id)

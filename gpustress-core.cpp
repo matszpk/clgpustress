@@ -28,7 +28,9 @@
 #include <cstring>
 #include <utility>
 #include <set>
+#include <cmath>
 #ifdef _WINDOWS
+#include <thread>
 #include <windows.h>
 #endif
 #include "gpustress-core.h"
@@ -71,7 +73,7 @@ namespace
             return 0;
         return w.QuadPart;
     }
-    static const int64_t g_Frequency = initGFrequency();
+    static int64_t g_Frequency = initGFrequency();
 };
 
 SteadyClock::time_point SteadyClock::now()
@@ -82,7 +84,7 @@ SteadyClock::time_point SteadyClock::now()
     
     LARGE_INTEGER w;
     if (!QueryPerformanceCounter(&w))
-        throw MyException("Cant get QPC clock time!");
+        throw MyException("Can't get QPC clock time!");
     
     const int64_t lx = w.LowPart * static_cast<rep>(period::den);
     const int64_t lp = lx / g_Frequency;
@@ -93,6 +95,28 @@ SteadyClock::time_point SteadyClock::now()
     const int64_t f = lp + int64_t(w.HighPart)*ih +
             (int64_t(w.HighPart)*hmod + lmod)/g_Frequency;
     return time_point(duration(f));
+}
+
+bool isQPCClockChoosen()
+{
+    return g_Frequency!=0;
+}
+
+bool verifyQPCClock()
+{
+    const std::chrono::time_point<SteadyClock> start = SteadyClock::now();
+    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    const std::chrono::time_point<SteadyClock> end = SteadyClock::now();
+    double nanos = double(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                end-start).count())*1.0e-9;
+    
+    double diff = ::fabs(nanos-2.0)*0.5;
+    if (diff > 0.01)
+    {
+        g_Frequency = 0;
+        return false;
+    }
+    return true;
 }
 #endif
 

@@ -401,6 +401,18 @@ int main(int argc, const char** argv)
         if (dontWait==0)
             std::this_thread::sleep_for(std::chrono::milliseconds(8000));
         
+#if defined(_WINDOWS) && defined(_MSC_VER)
+        if (isQPCClockChoosen())
+        {
+            std::cout << "Verifying QPC clock...";
+            std::cout.flush();
+            if (verifyQPCClock())
+                std::cout << " is OK" << std::endl;
+            else
+                std::cout << " FAILED! Using standard system clock." << std::endl;
+        }
+#endif
+        
         installSignals();
         
         bool ifExitingAtInit = false;

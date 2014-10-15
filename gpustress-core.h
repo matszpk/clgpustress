@@ -43,6 +43,9 @@ struct SteadyClock
     static time_point now();
 };
 
+extern bool isQPCClockChoosen();
+extern bool verifyQPCClock();
+
 typedef std::chrono::system_clock RealtimeClock;
 #else
 typedef std::chrono::steady_clock SteadyClock;
