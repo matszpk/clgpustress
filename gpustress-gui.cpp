@@ -262,7 +262,7 @@ private:
     static void verQPCWinButtonCalled(Fl_Widget* w, void* data);
 #endif
 #ifdef _WINDOWS
-    std::thread* prevMainStressThread;
+    cxuint prevStartCount, startCount;
     std::list<HandleOutputData*> queuedODatas;
     std::atomic<bool> mainStressFinished;
     
@@ -1398,7 +1398,8 @@ try
     updateTimerIsRun.store(false);
     mainStressThread = nullptr;
 #ifdef _WINDOWS
-    prevMainStressThread = nullptr;
+    prevStartCount = 0;
+    startCount = 1;
 #endif
 #if defined(_WINDOWS) && defined(_MSC_VER)
     verQPCThread = nullptr;
@@ -1568,7 +1569,10 @@ void GUIApp::verQPCFinished(void* data)
     if (guiapp->verQPCThread != nullptr)
         guiapp->verQPCThread->join();
     else // already handled
+    {
+        Fl::remove_timeout(&GUIApp::verQPCFinished, guiapp);
         return;
+    }
     delete guiapp->verQPCThread;
     guiapp->verQPCThread = nullptr;
     
@@ -1741,7 +1745,7 @@ void GUIApp::stressEndAwake(void* data)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
 #ifdef _WINDOWS
-    if (guiapp->prevMainStressThread != guiapp->mainStressThread)
+    if (guiapp->prevStartCount != guiapp->startCount)
         return; // nothing
 #endif
     if (!guiapp->doExitAfterStop)
@@ -1795,6 +1799,7 @@ void GUIApp::startStopCalled(Fl_Widget* widget, void* data)
         guiapp->mainStressFinished.store(false);
         Fl::add_timeout(1.0, &GUIApp::handleQueuedOdatas, data);
         guiapp->mainWin->redraw();
+        guiapp->startCount++;
 #endif
         guiapp->mainStressThread = new std::thread(&GUIApp::runStress, guiapp);
     }
@@ -1930,7 +1935,7 @@ void GUIApp::runStress()
     
 #ifdef _WINDOWS
     mainStressFinished.store(true);
-    prevMainStressThread = mainStressThread;
+    prevStartCount = startCount;
 #endif
     while (Fl::awake(&GUIApp::stressEndAwake, this) != 0);
 }
