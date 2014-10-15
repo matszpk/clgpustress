@@ -28,6 +28,7 @@
 #else
 #include <X11/xpm.h>
 #endif
+#include <algorithm>
 #include <iostream>
 #include <ostream>
 #include <sstream>
@@ -38,6 +39,7 @@
 #include <csignal>
 #include <climits>
 #ifdef _WINDOWS
+#include <list>
 #include <io.h>
 #else
 #include <unistd.h>
@@ -258,7 +260,13 @@ private:
     static void verQPCFinished(void* data);
     static void verQPCWinButtonCalled(Fl_Widget* w, void* data);
 #endif
+#ifdef _WINDOWS
+    std::thread* prevMainStressThread;
+    std::list<HandleOutputData*> queuedODatas;
+    std::atomic<bool> mainStressFinished;
     
+    static void handleQueuedOdatas(void* data);
+#endif
     bool isAppExitCalled;
     bool doExitAfterStop;
     bool testFinishedWithException;
@@ -1388,6 +1396,9 @@ try
     isAppExitCalled = false;
     updateTimerIsRun.store(false);
     mainStressThread = nullptr;
+#ifdef _WINDOWS
+    prevMainStressThread = nullptr;
+#endif
 #if defined(_WINDOWS) && defined(_MSC_VER)
     verQPCThread = nullptr;
     verQPCWin = nullptr;
@@ -1581,6 +1592,10 @@ void GUIApp::verQPCWinButtonCalled(Fl_Widget* w, void* data)
 }
 #endif
 
+#ifdef _WINDOWS
+static GUIApp* forStupidWindows;
+#endif
+
 // run in GPUStress test thread
 void GUIApp::handleOutput(void* data, cxuint id)
 {
@@ -1604,6 +1619,9 @@ void GUIApp::handleOutput(void* data, cxuint id)
         odata->guiapp = guiapp;
         guiapp->newLogsQueue.clear();
         // awake
+#ifdef _WINDOWS
+        guiapp->queuedODatas.push_back(odata);
+#endif
         while (Fl::awake(&GUIApp::handleOutputAwake, odata) != 0);
     }
 }
@@ -1611,11 +1629,39 @@ void GUIApp::handleOutput(void* data, cxuint id)
 void GUIApp::handleOutputAwake(void* data)
 {
     HandleOutputData* odata = reinterpret_cast<HandleOutputData*>(data);
-    odata->guiapp->testLogsGrp->updateLogs(odata->outQueue);
+    GUIApp* guiapp;
+#ifdef _WINDOWS
+    std::list<HandleOutputData*>::iterator it;
+    bool doIt = true;
+    std::list<HandleOutputData*> vodata;
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        it = std::find(forStupidWindows->queuedODatas.begin(),
+                forStupidWindows->queuedODatas.end(), data);
+        if (it == forStupidWindows->queuedODatas.end())
+            doIt = false;
+        std::copy(forStupidWindows->queuedODatas.begin(), it, vodata.begin());
+        forStupidWindows->queuedODatas.erase(it);
+    }
+    guiapp = forStupidWindows;
+    for (HandleOutputData* xodata: vodata)
+    {
+        guiapp->testLogsGrp->updateLogs(xodata->outQueue);
+        delete xodata;
+    }
+    if (doIt)
+    {
+#else
+    guiapp = odata->guiapp;
+#endif
+    guiapp->testLogsGrp->updateLogs(odata->outQueue);
     // add timeout for when awaken
-    odata->guiapp->updateTimerIsRun.store(true);
-    Fl::add_timeout(0.01, &GUIApp::updateLogsRepeatedly, odata->guiapp);
     delete odata;
+#ifdef _WINDOWS
+    }
+#endif
+    guiapp->updateTimerIsRun.store(true);
+    Fl::add_timeout(0.01, &GUIApp::updateLogsRepeatedly, guiapp);
 }
 
 // run in GUI (main) thread
@@ -1623,21 +1669,75 @@ void GUIApp::updateLogsRepeatedly(void* data)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
     std::vector<NewLogsBufQueueElem> curLogsQueue;
+#ifdef _WINDOWS
+    std::list<HandleOutputData*> vodata;
+#endif
     {
         std::lock_guard<std::mutex> l(stdOutputMutex);
+#ifdef _WINDOWS
+        {
+            vodata = guiapp->queuedODatas;
+            guiapp->queuedODatas.clear();
+        }
+#endif
         guiapp->lastLogTime = SteadyClock::now();
         curLogsQueue = guiapp->newLogsQueue;
         guiapp->newLogsQueue.clear();
     }
+#ifdef _WINDOWS
+    for (HandleOutputData* odata: vodata)
+    {
+        guiapp->testLogsGrp->updateLogs(odata->outQueue);
+        delete odata;
+    }
+#endif
     guiapp->testLogsGrp->updateLogs(curLogsQueue);
     // if not used remove timeout
     Fl::remove_timeout(&GUIApp::updateLogsRepeatedly, data);
     guiapp->updateTimerIsRun.store(false);
 }
 
+#ifdef _WINDOWS
+void GUIApp::handleQueuedOdatas(void* data)
+{
+    GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
+    
+    if (guiapp->mainStressThread == nullptr)
+    {
+        Fl::remove_timeout(&GUIApp::handleQueuedOdatas, data);
+        return;
+    }
+    
+    std::list<HandleOutputData*> vodata;
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        vodata = guiapp->queuedODatas;
+        guiapp->queuedODatas.clear();
+    }
+    for (HandleOutputData* odata: vodata)
+    {
+        guiapp->testLogsGrp->updateLogs(odata->outQueue);
+        delete odata;
+    }
+    
+    if (guiapp->mainStressFinished.load())
+    {
+        Fl::remove_timeout(&GUIApp::handleQueuedOdatas, data);
+        stressEndAwake(data);
+        return;
+    }
+    
+    Fl::repeat_timeout(1.0, &GUIApp::handleQueuedOdatas, data);
+}
+#endif
+
 void GUIApp::stressEndAwake(void* data)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
+#ifdef _WINDOWS
+    if (guiapp->prevMainStressThread != guiapp->mainStressThread)
+        return; // nothing
+#endif
     if (!guiapp->doExitAfterStop)
     {   // we exiting - do not activate disabled elements
         guiapp->deviceChoiceGrp->activateView();
@@ -1652,6 +1752,9 @@ void GUIApp::stressEndAwake(void* data)
     delete guiapp->mainStressThread;
     guiapp->mainStressThread = nullptr;
     Fl::remove_timeout(&GUIApp::updateLogsRepeatedly, data);
+#ifdef _WINDOWS
+    Fl::remove_timeout(&GUIApp::handleQueuedOdatas, data);
+#endif
     guiapp->updateTimerIsRun.store(true);
     updateLogsRepeatedly(data); // flush anything from logsQueue
     
@@ -1681,7 +1784,12 @@ void GUIApp::startStopCalled(Fl_Widget* widget, void* data)
         guiapp->testLogsGrp->updateDeviceList();
         guiapp->mainTabs->value(guiapp->testLogsGrp);
         guiapp->exitAllFailsValue = guiapp->exitAllFailsButton->value();
-        
+        guiapp->updateTimerIsRun.store(false);
+#ifdef _WINDOWS
+        guiapp->mainStressFinished.store(false);
+        Fl::add_timeout(1.0, &GUIApp::handleQueuedOdatas, data);
+        guiapp->mainWin->redraw();
+#endif
         guiapp->mainStressThread = new std::thread(&GUIApp::runStress, guiapp);
     }
     else
@@ -1814,6 +1922,10 @@ void GUIApp::runStress()
         handleOutput(this, UINT_MAX);
     }
     
+#ifdef _WINDOWS
+    mainStressFinished.store(true);
+    prevMainStressThread = mainStressThread;
+#endif
     while (Fl::awake(&GUIApp::stressEndAwake, this) != 0);
 }
 
@@ -1992,6 +2104,9 @@ int main(int argc, const char** argv)
                 
         /* run window */
         GUIApp guiapp(choosenClDevices, gpuStressConfigs);
+#ifdef _WINDOWS
+        forStupidWindows = &guiapp;
+#endif
         if (!guiapp.run())
             retVal = 1;
     }
