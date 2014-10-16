@@ -1686,15 +1686,6 @@ void GUIApp::stressEndAwake(void* data)
 #ifdef _WINDOWS
     guiapp->notifyAwakerExit();
 #endif
-    if (!guiapp->doExitAfterStop)
-    {   // we exiting - do not activate disabled elements
-        guiapp->deviceChoiceGrp->activateView();
-        guiapp->testConfigsGrp->activateView();
-        guiapp->startStopButton->activate();
-        guiapp->startStopButton->label("START");
-        guiapp->startStopButton->tooltip("Start stress test for all devices");
-        guiapp->exitAllFailsButton->activate();
-    }
     if (guiapp->mainStressThread != nullptr)
         guiapp->mainStressThread->join();
     delete guiapp->mainStressThread;
@@ -1704,10 +1695,17 @@ void GUIApp::stressEndAwake(void* data)
     updateLogsRepeatedly(data); // flush anything from logsQueue
     
     if (guiapp->doExitAfterStop)
-    {
+    {   // we exiting - do not activate disabled elements
         guiapp->mainWin->hide();
         return;
     }
+    guiapp->deviceChoiceGrp->activateView();
+    guiapp->testConfigsGrp->activateView();
+    guiapp->startStopButton->activate();
+    guiapp->startStopButton->label("START");
+    guiapp->startStopButton->tooltip("Start stress test for all devices");
+    guiapp->exitAllFailsButton->activate();
+    
     if (guiapp->testFinishedWithException)
     {
         guiapp->setTabToTestLogs();
