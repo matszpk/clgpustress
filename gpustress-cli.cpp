@@ -29,7 +29,6 @@
 #include <vector>
 #include <thread>
 #include <mutex>
-#  include <cerrno>
 #ifdef _WINDOWS
 #  include <windows.h>
 #else

@@ -799,7 +799,7 @@ void GPUStressTester::calibrateKernel()
         {   /* if choosen we compile real code */
             std::lock_guard<std::mutex> l(stdOutputMutex);
             *outStream << " 100%" << std::endl;
-            *outStream << "Kernel Calibrated for\n  " <<
+            *outStream << "Kernel calibrated for\n  " <<
                     "#" << id << " " << platformName << ":" << deviceName << "\n"
                     "  BestKitersNum: " << bestKitersNum << ", Bandwidth: " << bestBandwidth <<
                     " GB/s, Performance: " << bestPerf << " GFLOPS" << std::endl;
@@ -891,6 +891,24 @@ void GPUStressTester::calibrateKernel()
                 break;
         //*outStream << "acceptedToAvg: " << acceptedToAvg << std::endl;
         kernelTime = std::accumulate(kernelTimes, kernelTimes+acceptedToAvg, 0ULL)/acceptedToAvg;
+        
+        double currentBandwidth;
+        currentBandwidth = 2.0*4.0*double(bufItemsNum) / double(kernelTime);
+        double currentPerf;
+        if (!usePolyWalker)
+            currentPerf = 2.0*3.0*double(kitersNum)*double(bufItemsNum) /
+                    double(kernelTime);
+        else
+            currentPerf = 8.0*double(kitersNum)*double(bufItemsNum) /
+                    double(kernelTime);
+        {
+            std::lock_guard<std::mutex> l(stdOutputMutex);
+            *outStream << "Kernel performance for\n  " <<
+                    "#" << id << " " << platformName << ":" << deviceName << "\n"
+                    "  KitersNum: " << kitersNum << ", Bandwidth: " << currentBandwidth <<
+                    " GB/s, Performance: " << currentPerf << " GFLOPS" << std::endl;
+            handleOutput(id);
+        }
     }
     
     // determine how many iterations can be queued at same time
