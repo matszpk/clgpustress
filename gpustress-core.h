@@ -32,7 +32,7 @@
 #include <atomic>
 #include <CL/cl.hpp>
 
-#if defined(_WINDOWS) && defined(_MSC_VER)
+#ifdef _WINDOWS
 struct SteadyClock
 {
     typedef int64_t rep;

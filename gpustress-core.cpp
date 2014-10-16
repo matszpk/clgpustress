@@ -58,7 +58,7 @@ const char* MyException::what() const throw()
     return message.c_str();
 }
 
-#if defined(_WINDOWS) && defined(_MSC_VER)
+#ifdef _WINDOWS
 namespace
 {
     static int64_t initGFrequency()

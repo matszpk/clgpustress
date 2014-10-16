@@ -38,7 +38,7 @@
 #include <CL/cl.hpp>
 #include "gpustress-core.h"
 
-#define PROGRAM_VERSION "0.0.9.2"
+#define PROGRAM_VERSION "0.0.9.4"
 
 extern const char* testDescsTable[];
 
@@ -400,7 +400,7 @@ int main(int argc, const char** argv)
         if (dontWait==0)
             std::this_thread::sleep_for(std::chrono::milliseconds(8000));
         
-#if defined(_WINDOWS) && defined(_MSC_VER)
+#ifdef _WINDOWS
         if (isQPCClockChoosen())
         {
             std::cout << "Verifying QPC clock...";

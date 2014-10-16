@@ -76,7 +76,7 @@
 #  define SIZE_T_SPEC "%zu"
 #endif
 
-#define PROGRAM_VERSION "0.0.9.2"
+#define PROGRAM_VERSION "0.0.9.4"
 
 #ifndef _WINDOWS
 #include "icon.xpm"
@@ -251,7 +251,7 @@ private:
     std::ostringstream logOutputStream;
     
     std::thread* mainStressThread;
-#if defined(_WINDOWS) && defined(_MSC_VER)
+#ifdef _WINDOWS
     Fl_Window* verQPCWin;
     std::thread* verQPCThread;
     bool resultOfQPCVerif;
@@ -259,8 +259,6 @@ private:
     void runVerQPC();
     static void verQPCFinished(void* data);
     static void verQPCWinButtonCalled(Fl_Widget* w, void* data);
-#endif
-#ifdef _WINDOWS
     /* use separate awaker to force awake and flush awake messages,
      * in some circumstances FLTK can't flush awakes (for example after moving Window) */
     bool awakerExit;
@@ -1400,11 +1398,9 @@ try
     isAppExitCalled = false;
     updateTimerIsRun.store(false);
     mainStressThread = nullptr;
-#if defined(_WINDOWS) && defined(_MSC_VER)
+#ifdef _WINDOWS
     verQPCThread = nullptr;
     verQPCWin = nullptr;
-#endif
-#ifdef _WINDOWS
     awakerExit = false;
 #endif
     
@@ -1475,7 +1471,7 @@ try
     installOutputHandler(&logOutputStream, &logOutputStream, &GUIApp::handleOutput, this);
     deviceChoiceGrp->initialChoice(clDevices);
     updateGlobal();
-#if defined(_WINDOWS) && defined(_MSC_VER)
+#ifdef _WINDOWS
     if (isQPCClockChoosen())
     {
         verQPCWin = new Fl_Window(400, 60, "GPUStress: Checking QPC...");
@@ -1528,7 +1524,7 @@ GUIApp::~GUIApp()
         stopAllStressTestersByUser.store(true);
         mainStressThread->join();
     }
-#if defined(_WINDOWS) && defined(_MSC_VER)
+#ifdef _WINDOWS
     if (verQPCThread != nullptr)
         verQPCThread->join();
     delete verQPCWin;
@@ -1576,7 +1572,7 @@ bool GUIApp::run()
     Fl::lock();
     mainWin->show(progArgc, (char**)progArgv);
     alertWin->show(progArgc, (char**)progArgv);
-#if defined(_WINDOWS) && defined(_MSC_VER)
+#ifdef _WINDOWS
     verQPCWin->show(progArgc, (char**)progArgv);
     if (isQPCClockChoosen())
     {   // run QPC checker
@@ -1602,7 +1598,7 @@ bool GUIApp::run()
     return true;
 }
 
-#if defined(_WINDOWS) && defined(_MSC_VER)
+#ifdef _WINDOWS
 void GUIApp::runVerQPC()
 {
     resultOfQPCVerif = verifyQPCClock();
