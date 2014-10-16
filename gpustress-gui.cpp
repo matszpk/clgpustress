@@ -256,9 +256,9 @@ private:
     std::thread* verQPCThread;
     bool resultOfQPCVerif;
     
+    void runVerQPC();
     static void verQPCFinished(void* data);
-    static void verQPCWinButtonCalled(Fl_Widget* w, void* data);
-    
+    static void verQPCWinButtonCalled(Fl_Widget* w, void* data);    
 #endif
 #ifdef _WINDOWS
     /* use separate awaker to force awake and flush awake messages,
@@ -1478,7 +1478,7 @@ try
 #if defined(_WINDOWS) && defined(_MSC_VER)
     if (isQPCClockChoosen())
     {
-        verQPCWin = new Fl_Window(400, 60, "Checking QPC...");
+        verQPCWin = new Fl_Window(400, 60, "GPUStress: Checking QPC...");
         verQPCWin->set_modal();
         verQPCWin->callback([](Fl_Widget* w, void* data)
         {
@@ -1487,7 +1487,7 @@ try
                 w->hide();
         }, this);
         Fl_Box* msgLabel = new Fl_Box(0, 0, 400, 30, "Verifying QPC clock...");
-        Fl_Return_Button* button = new Fl_Return_Button(300, 30, 80, 20, "Close");
+        Fl_Return_Button* button = new Fl_Return_Button(320, 30, 70, 20, "Close");
         button->callback(&GUIApp::verQPCWinButtonCalled, this);
         button->hide();
         verQPCWin->end();
@@ -1503,6 +1503,13 @@ catch(...)
 
 GUIApp::~GUIApp()
 {
+#ifdef _WINDOWS
+    {
+        std::lock_guard<std::mutex> l(awakerMutex);
+        awakerExit = true;
+        awakerCond.notify_one();
+    }
+#endif
     if (mainStressThread != nullptr)
     {
         stopAllStressTestersByUser.store(true);
@@ -1559,14 +1566,8 @@ bool GUIApp::run()
     if (verQPCWin != nullptr)
     {
         verQPCWin->show(progArgc, (char**)progArgv);
-        GUIApp* guiapp = this;
         resetAwakeExit();
-        verQPCThread = new std::thread([guiapp]()
-        {
-            guiapp->resultOfQPCVerif = verifyQPCClock();
-            while (Fl::awake(&GUIApp::verQPCFinished, guiapp)!=0);
-            guiapp->awakeAndWaitForExit();
-        });
+        verQPCThread = new std::thread(&GUIApp::runVerQPC, this);
     }
 #endif
     int ret = Fl::run();
@@ -1588,6 +1589,13 @@ bool GUIApp::run()
 }
 
 #if defined(_WINDOWS) && defined(_MSC_VER)
+void GUIApp::runVerQPC()
+{
+    resultOfQPCVerif = verifyQPCClock();
+    while (Fl::awake(&GUIApp::verQPCFinished, this)!=0);
+    awakeAndWaitForExit();
+}
+
 void GUIApp::verQPCFinished(void* data)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
