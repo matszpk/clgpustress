@@ -258,7 +258,7 @@ private:
     
     void runVerQPC();
     static void verQPCFinished(void* data);
-    static void verQPCWinButtonCalled(Fl_Widget* w, void* data);    
+    static void verQPCWinButtonCalled(Fl_Widget* w, void* data);
 #endif
 #ifdef _WINDOWS
     /* use separate awaker to force awake and flush awake messages,
@@ -1492,12 +1492,25 @@ try
         button->hide();
         verQPCWin->end();
     }
+    else
+    {
+        verQPCWin = new Fl_Window(400, 60, "GPUStress: No QPC!");
+        verQPCWin->set_modal();
+        Fl_Box* msgLabel = new Fl_Box(0, 0, 400, 30,
+                "QPC Clock is unavailable or not stable!");
+        Fl_Return_Button* button = new Fl_Return_Button(320, 30, 70, 20, "Close");
+        button->callback(&GUIApp::verQPCWinButtonCalled, this);
+        verQPCWin->end();
+    }
 #endif
 }
 catch(...)
 {
     delete mainWin;
     delete alertWin;
+#ifdef _WINDOWS
+    delete verQPCWin;
+#endif
     throw;
 }
 
@@ -1552,7 +1565,8 @@ void GUIApp::awakeAndWaitForExit()
     while (!awakerExit)
     {
         awakerCond.wait_for(l, std::chrono::milliseconds(50));
-        Fl::awake(); // send awake
+        if (!awakerExit)
+            Fl::awake(); // send awake if not awaken
     }
 }
 #endif
@@ -1563,9 +1577,9 @@ bool GUIApp::run()
     mainWin->show(progArgc, (char**)progArgv);
     alertWin->show(progArgc, (char**)progArgv);
 #if defined(_WINDOWS) && defined(_MSC_VER)
-    if (verQPCWin != nullptr)
-    {
-        verQPCWin->show(progArgc, (char**)progArgv);
+    verQPCWin->show(progArgc, (char**)progArgv);
+    if (isQPCClockChoosen())
+    {   // run QPC checker
         resetAwakeExit();
         verQPCThread = new std::thread(&GUIApp::runVerQPC, this);
     }

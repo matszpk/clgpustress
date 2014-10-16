@@ -411,6 +411,8 @@ int main(int argc, const char** argv)
             else
                 std::cout << " FAILED! Using standard system clock." << std::endl;
         }
+        else // if QPC not choosen
+            std::cout << "QPC Clock is unavailable or not stable!" << std::endl;
 #endif
         
         installSignals();
