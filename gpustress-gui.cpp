@@ -1572,14 +1572,6 @@ bool GUIApp::run()
     Fl::lock();
     mainWin->show(progArgc, (char**)progArgv);
     alertWin->show(progArgc, (char**)progArgv);
-#ifdef _WINDOWS
-    verQPCWin->show(progArgc, (char**)progArgv);
-    if (isQPCClockChoosen())
-    {   // run QPC checker
-        resetAwakeExit();
-        verQPCThread = new std::thread(&GUIApp::runVerQPC, this);
-    }
-#endif
     int ret = Fl::run();
     if (ret != 0)
     {
@@ -1883,6 +1875,15 @@ void GUIApp::dismissAlertCalled(Fl_Widget* widget, void* data)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
     guiapp->alertWin->hide();
+#ifdef _WINDOWS
+    /* after close caution we check QPC or display info */
+    guiapp->verQPCWin->show(progArgc, (char**)progArgv);
+    if (isQPCClockChoosen())
+    {   // run QPC checker
+        guiapp->resetAwakeExit();
+        guiapp->verQPCThread = new std::thread(&GUIApp::runVerQPC, guiapp);
+    }
+#endif
 }
 
 void GUIApp::mainWinExitCalled(Fl_Widget* widget, void* data)
