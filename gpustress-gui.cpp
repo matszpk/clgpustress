@@ -261,12 +261,14 @@ private:
     
 #endif
 #ifdef _WINDOWS
-    /* use separate awaker to force awake and flush awake messages */
+    /* use separate awaker to force awake and flush awake messages,
+     * in some circumstances FLTK can't flush awakes (for example after moving Window) */
     bool awakerExit;
-    std::thread* awakerThread;
-    void runAwaker();
     std::mutex awakerMutex;
     std::condition_variable awakerCond;
+    void resetAwakeExit();
+    void notifyAwakerExit();
+    void awakeAndWaitForExit();
 #endif
     
     bool isAppExitCalled;
@@ -1403,7 +1405,6 @@ try
     verQPCWin = nullptr;
 #endif
 #ifdef _WINDOWS
-    awakerThread = nullptr;
     awakerExit = false;
 #endif
     
@@ -1512,16 +1513,6 @@ GUIApp::~GUIApp()
         verQPCThread->join();
     delete verQPCWin;
 #endif
-#ifdef _WINDOWS
-    {
-        std::lock_guard<std::mutex> l(awakerMutex);
-        awakerExit = true;
-        awakerCond.notify_one();
-    }
-    if (awakerThread != nullptr)
-        awakerThread->join();
-    delete awakerThread;
-#endif
     delete mainWin;
     delete alertWin;
 }
@@ -1535,6 +1526,30 @@ void GUIApp::updateGlobal()
     testConfigsGrp->updateDeviceList();
 }
 
+#ifdef _WINDOWS
+void GUIApp::resetAwakeExit()
+{
+    awakerExit = false;
+}
+
+void GUIApp::notifyAwakerExit()
+{
+    std::lock_guard<std::mutex> l(awakerMutex);
+    awakerExit = true;
+    awakerCond.notify_one();
+}
+
+void GUIApp::awakeAndWaitForExit()
+{
+    std::unique_lock<std::mutex> l(awakerMutex);
+    while (!awakerExit)
+    {
+        awakerCond.wait_for(l, std::chrono::milliseconds(50));
+        Fl::awake(); // send awake
+    }
+}
+#endif
+
 bool GUIApp::run()
 {
     Fl::lock();
@@ -1545,15 +1560,14 @@ bool GUIApp::run()
     {
         verQPCWin->show(progArgc, (char**)progArgv);
         GUIApp* guiapp = this;
+        resetAwakeExit();
         verQPCThread = new std::thread([guiapp]()
         {
             guiapp->resultOfQPCVerif = verifyQPCClock();
             while (Fl::awake(&GUIApp::verQPCFinished, guiapp)!=0);
+            guiapp->awakeAndWaitForExit();
         });
     }
-#endif
-#ifdef _WINDOWS
-    awakerThread = new std::thread(&GUIApp::runAwaker, this);
 #endif
     int ret = Fl::run();
     if (ret != 0)
@@ -1573,21 +1587,11 @@ bool GUIApp::run()
     return true;
 }
 
-#ifdef _WINDOWS
-void GUIApp::runAwaker()
-{
-    GUIApp& guiapp = *this;
-    std::unique_lock<std::mutex> l(awakerMutex);
-    while (!awakerCond.wait_for(l, std::chrono::milliseconds(1000), 
-        [&guiapp]() { return guiapp.awakerExit; }))
-        Fl::awake();
-}
-#endif
-
 #if defined(_WINDOWS) && defined(_MSC_VER)
 void GUIApp::verQPCFinished(void* data)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
+    guiapp->notifyAwakerExit();
     if (guiapp->verQPCThread != nullptr)
         guiapp->verQPCThread->join();
     else // already handled
@@ -1671,6 +1675,9 @@ void GUIApp::updateLogsRepeatedly(void* data)
 void GUIApp::stressEndAwake(void* data)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
+#ifdef _WINDOWS
+    guiapp->notifyAwakerExit();
+#endif
     if (!guiapp->doExitAfterStop)
     {   // we exiting - do not activate disabled elements
         guiapp->deviceChoiceGrp->activateView();
@@ -1714,6 +1721,9 @@ void GUIApp::startStopCalled(Fl_Widget* widget, void* data)
         guiapp->testLogsGrp->updateDeviceList();
         guiapp->mainTabs->value(guiapp->testLogsGrp);
         guiapp->exitAllFailsValue = guiapp->exitAllFailsButton->value();
+#ifdef _WINDOWS
+        guiapp->resetAwakeExit();
+#endif
         
         guiapp->mainStressThread = new std::thread(&GUIApp::runStress, guiapp);
     }
@@ -1848,6 +1858,9 @@ void GUIApp::runStress()
     }
     
     while (Fl::awake(&GUIApp::stressEndAwake, this) != 0);
+#ifdef _WINDOWS
+    awakeAndWaitForExit();
+#endif
 }
 
 void GUIApp::dismissAlertCalled(Fl_Widget* widget, void* data)

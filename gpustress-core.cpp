@@ -111,7 +111,7 @@ bool verifyQPCClock()
                 end-start).count())*1.0e-9;
     
     double diff = ::fabs(nanos-2.0)*0.5;
-    if (diff > 0.01)
+    if (diff > 0.015)
     {
         g_Frequency = 0;
         return false;
