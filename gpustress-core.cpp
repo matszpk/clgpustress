@@ -525,12 +525,7 @@ try :
     for (cxuint i = 0; i < passItersNum; i++)
     {
         if (stopAllStressTestersByUser.load())
-        {
-            std::lock_guard<std::mutex> l(stdOutputMutex);
-            *outStream << "#" << id << " Exiting, because user stopped test." << std::endl;
-            handleOutput(id);
-            return;
-        }
+            break; // skip this
         
         if (useInputAndOutput)
         {
@@ -577,6 +572,12 @@ try :
     else //
         clCmdQueue1.enqueueReadBuffer(clBuffer2, CL_TRUE, size_t(0), bufItemsNum<<2,
                     toCompare);
+    
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        *outStream << "#" << id << " Results for comparison has been generated." << std::endl;
+        handleOutput(id);
+    }    
     
     // print results
     /*for (size_t i = 0; i < bufItemsNum; i++)
@@ -1086,13 +1087,13 @@ try
             {   /* wait for ndrange kernel and ensure fluent working */
                 stepsAfterWait = 0;
                 try
-                { exec1Events[i].wait(); }
+                { exec1Events[i-1].wait(); }
                 catch(const cl::Error& err)
                 {
                     if (err.err() != CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST)
                         throw; // if other error
                     int eventStatus;
-                    exec1Events[i].getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
+                    exec1Events[i-1].getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
                     if (eventStatus < 0)
                     {
                         char strBuf[64];
@@ -1211,13 +1212,13 @@ try
             {   /* wait for ndrange kernel and ensure fluent working */
                 stepsAfterWait = 0;
                 try
-                { exec2Events[i].wait(); }
+                { exec2Events[i-1].wait(); }
                 catch(const cl::Error& err)
                 {
                     if (err.err() != CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST)
                         throw; // if other error
                     int eventStatus;
-                    exec2Events[i].getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
+                    exec2Events[i-1].getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &eventStatus);
                     if (eventStatus < 0)
                     {
                         char strBuf[64];
