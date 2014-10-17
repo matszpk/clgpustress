@@ -1430,6 +1430,8 @@ try
     rbutton->labelfont(FL_HELVETICA_BOLD);
     rbutton->callback(&GUIApp::dismissAlertCalled, this);
     alertWin->end();
+    alertWin->callback([](Fl_Widget* w, void* data)
+    { GUIApp::dismissAlertCalled(((Fl_Window*)w)->child(1), data); }, this);
     
     mainWin = new Fl_Window(760, 465, "GPUStress GUI " PROGRAM_VERSION);
     mainWin->icon((char*)iconData);
