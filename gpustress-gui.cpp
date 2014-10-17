@@ -227,12 +227,6 @@ private:
     
     std::vector<NewLogsBufQueueElem> newLogsQueue;
     
-    struct HandleOutputData
-    {
-        std::vector<NewLogsBufQueueElem> outQueue;
-        GUIApp* guiapp;
-    };
-    
     std::atomic<bool> updateTimerIsRun;
     
     Fl_Window* mainWin;
@@ -1648,24 +1642,26 @@ void GUIApp::handleOutput(void* data, cxuint id)
     if (nanos >= 10000000LL && !guiapp->updateTimerIsRun.load())
     {
         guiapp->lastLogTime = currentTime;
-        HandleOutputData* odata = new HandleOutputData;
-        odata->outQueue = guiapp->newLogsQueue;
-        odata->guiapp = guiapp;
-        guiapp->newLogsQueue.clear();
         // awake
-        while (Fl::awake(&GUIApp::handleOutputAwake, odata) != 0);
+        while (Fl::awake(&GUIApp::handleOutputAwake, data) != 0);
     }
 }
 
 void GUIApp::handleOutputAwake(void* data)
 {
-    HandleOutputData* odata = reinterpret_cast<HandleOutputData*>(data);
-    odata->guiapp->testLogsGrp->updateLogs(odata->outQueue);
+    GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
+    std::vector<NewLogsBufQueueElem> curLogsQueue;
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        guiapp->lastLogTime = SteadyClock::now();
+        curLogsQueue = guiapp->newLogsQueue;
+        guiapp->newLogsQueue.clear();
+    }
+    guiapp->testLogsGrp->updateLogs(curLogsQueue);
     // add timeout for when awaken (and if not added)
     bool expected = false;
-    if (odata->guiapp->updateTimerIsRun.compare_exchange_strong(expected, true))
-        Fl::add_timeout(0.01, &GUIApp::updateLogsAfterAwake, odata->guiapp);
-    delete odata;
+    if (guiapp->updateTimerIsRun.compare_exchange_strong(expected, true))
+        Fl::add_timeout(0.01, &GUIApp::updateLogsAfterAwake, guiapp);
 }
 
 // run in GUI (main) thread
