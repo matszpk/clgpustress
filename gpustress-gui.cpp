@@ -1653,7 +1653,6 @@ void GUIApp::handleOutputAwake(void* data)
     std::vector<NewLogsBufQueueElem> curLogsQueue;
     {
         std::lock_guard<std::mutex> l(stdOutputMutex);
-        guiapp->lastLogTime = SteadyClock::now();
         curLogsQueue = guiapp->newLogsQueue;
         guiapp->newLogsQueue.clear();
     }
