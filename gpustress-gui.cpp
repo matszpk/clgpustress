@@ -267,7 +267,6 @@ private:
     void resetAwakeExit();
     void notifyAwakerExit();
     void awakeAndWaitForExit();
-    static void updateLogsInTimer(void* data);
 #endif
     
     bool isAppExitCalled;
@@ -1686,28 +1685,6 @@ void GUIApp::updateLogsAfterAwake(void* data)
     guiapp->updateTimerIsRun.store(false);
 }
 
-#ifdef _WINDOWS
-void GUIApp::updateLogsInTimer(void* data)
-{   /* handle awakes */
-    Fl_Awake_Handler awakeFunc;
-    void *awakeData;
-    while (Fl::get_awake_handler_(awakeFunc, awakeData)==0)
-        awakeFunc(awakeData);
-    
-    GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
-    std::vector<NewLogsBufQueueElem> curLogsQueue;
-    {
-        std::lock_guard<std::mutex> l(stdOutputMutex);
-        curLogsQueue = guiapp->newLogsQueue;
-        guiapp->newLogsQueue.clear();
-    }
-    guiapp->testLogsGrp->updateLogs(curLogsQueue);
-    /* stupid Windows have modal operations */
-    Fl::flush(); // flush all
-    Fl::repeat_timeout(0.1, &GUIApp::updateLogsInTimer, data);
-}
-#endif
-
 void GUIApp::stressEndAwake(void* data)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
@@ -1719,9 +1696,6 @@ void GUIApp::stressEndAwake(void* data)
     delete guiapp->mainStressThread;
     guiapp->mainStressThread = nullptr;
     Fl::remove_timeout(&GUIApp::updateLogsAfterAwake, data);
-#ifdef _WINDOWS
-    Fl::remove_timeout(&GUIApp::updateLogsInTimer, data);
-#endif
     guiapp->updateTimerIsRun.store(true);
     updateLogsAfterAwake(data); // flush anything from logsQueue
     
@@ -1760,7 +1734,6 @@ void GUIApp::startStopCalled(Fl_Widget* widget, void* data)
         guiapp->exitAllFailsValue = guiapp->exitAllFailsButton->value();
 #ifdef _WINDOWS
         guiapp->resetAwakeExit();
-        Fl::add_timeout(0.1, &GUIApp::updateLogsInTimer, data);
 #endif
         
         guiapp->mainStressThread = new std::thread(&GUIApp::runStress, guiapp);
