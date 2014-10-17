@@ -691,7 +691,12 @@ void GPUStressTester::calibrateKernel()
         for (cxuint curKitersNum = 1; curKitersNum <= 40; curKitersNum++)
         {
             if (stopAllStressTestersByUser.load())
+            {
+                std::lock_guard<std::mutex> l(stdOutputMutex);
+                *outStream << std::endl;
+                handleOutput(id);
                 return;
+            }
             
             if (((curKitersNum-1)%5) == 0)
             {   /* print progress of calibration */
@@ -722,7 +727,12 @@ void GPUStressTester::calibrateKernel()
             for (cxuint k = 0; k < 5; k++)
             {
                 if (stopAllStressTestersByUser.load())
+                {
+                    std::lock_guard<std::mutex> l(stdOutputMutex);
+                    *outStream << std::endl;
+                    handleOutput(id);
                     return; // if stopped by user
+                }
                 
                 if (!useInputAndOutput) // ensure always this same input data for kernel
                     clCmdQueue1.enqueueWriteBuffer(clBuffer1, CL_TRUE, size_t(0),
