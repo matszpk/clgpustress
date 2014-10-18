@@ -219,6 +219,12 @@ struct NewLogsBufQueueElem
     std::string logText;
 };
 
+#ifdef _WINDOWS
+class GUIApp;
+static bool duringModalOp = false;
+static class GUIApp* globalGUIApp = nullptr;
+#endif
+
 class GUIApp
 {
 private:
@@ -261,6 +267,11 @@ private:
     void resetAwakeExit();
     void notifyAwakerExit();
     void awakeAndWaitForExit();
+    static int windowModalOpHandler(int ev);
+    static void updateLogsAtModalOp(void* data);
+    
+    cxuint pendingAlert;
+    void displayPendingAlert();
 #endif
     
     bool isAppExitCalled;
@@ -282,8 +293,12 @@ public:
     GUIApp(const std::vector<cl::Device>& clDevices,
            const std::vector<GPUStressConfig>& configs);
     ~GUIApp();
-        
+    
     bool run();
+    
+#ifdef _WINDOWS
+    void setPendingAlert(int alert);
+#endif
     
     void updateGlobal();
     
@@ -1111,6 +1126,8 @@ public:
     void updateDeviceList();
     void updateLogs(const std::vector<NewLogsBufQueueElem>& newLogsQueue);
     void choiceTestLog(cxuint index);
+    
+    void displayAlert(int alert);
 };
 
 TestLogsGroup::TestLogsGroup(GUIApp& _guiapp)
@@ -1367,10 +1384,24 @@ void TestLogsGroup::updateLogs(const std::vector<NewLogsBufQueueElem>& newLogsQu
         logOutput->scroll(maxLogLength, 0);
     if (lastToAlert != UINT_MAX)
     {
-        guiapp.setTabToTestLogs();
-        choiceTestLog(lastToAlert);
-        fl_alert("Failed test for device %s!", origDeviceChoiceLabels[lastToAlert-1].c_str());
+#ifdef _WINDOWS
+        if (!duringModalOp)
+        {
+#endif
+        displayAlert(lastToAlert);
+#ifdef _WINDOWS
+        }
+        else
+            guiapp.setPendingAlert(lastToAlert);
+#endif
     }
+}
+
+void TestLogsGroup::displayAlert(int alert)
+{
+    guiapp.setTabToTestLogs();
+    choiceTestLog(alert);
+    fl_alert("Failed test for device %s!", origDeviceChoiceLabels[alert-1].c_str());
 }
 
 void TestLogsGroup::choiceTestLog(cxuint index)
@@ -1396,6 +1427,7 @@ try
     verQPCThread = nullptr;
     verQPCWin = nullptr;
     awakerExit = false;
+    pendingAlert = UINT_MAX;
 #endif
     
 #ifdef _WINDOWS
@@ -1494,6 +1526,8 @@ try
         button->callback(&GUIApp::verQPCWinButtonCalled, this);
         verQPCWin->end();
     }
+    
+    Fl::add_handler(&GUIApp::windowModalOpHandler);
 #endif
 }
 catch(...)
@@ -1502,6 +1536,7 @@ catch(...)
     delete alertWin;
 #ifdef _WINDOWS
     delete verQPCWin;
+    Fl::remove_handler(&GUIApp::windowModalOpHandler);
 #endif
     throw;
 }
@@ -1509,6 +1544,7 @@ catch(...)
 GUIApp::~GUIApp()
 {
 #ifdef _WINDOWS
+    Fl::remove_handler(&GUIApp::windowModalOpHandler);
     {
         std::lock_guard<std::mutex> l(awakerMutex);
         awakerExit = true;
@@ -1539,6 +1575,38 @@ void GUIApp::updateGlobal()
 }
 
 #ifdef _WINDOWS
+void GUIApp::displayPendingAlert()
+{
+    if (pendingAlert == UINT_MAX || duringModalOp)
+        return;
+    if (pendingAlert != 0)
+        testLogsGrp->displayAlert(pendingAlert);
+    pendingAlert = UINT_MAX;
+}
+
+void GUIApp::setPendingAlert(int alert)
+{
+    pendingAlert = alert;
+}
+
+int GUIApp::windowModalOpHandler(int ev)
+{
+    if (fl_msg.message == WM_ENTERSIZEMOVE)
+    {
+        duringModalOp = true;
+        if (globalGUIApp->mainStressThread != nullptr)
+            Fl::add_timeout(0.05, &GUIApp::updateLogsAtModalOp, globalGUIApp);
+        return 1;
+    }
+    else if (fl_msg.message == WM_EXITSIZEMOVE)
+    {
+        duringModalOp = false;
+        Fl::remove_timeout(&GUIApp::updateLogsAtModalOp, globalGUIApp);
+        return 1;
+    }
+    return 0;
+}
+
 void GUIApp::resetAwakeExit()
 {
     awakerExit = false;
@@ -1650,6 +1718,9 @@ void GUIApp::handleOutput(void* data, cxuint id)
 void GUIApp::handleOutputAwake(void* data)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
+#ifdef _WINDOWS
+    guiapp->displayPendingAlert();
+#endif
     std::vector<NewLogsBufQueueElem> curLogsQueue;
     {
         std::lock_guard<std::mutex> l(stdOutputMutex);
@@ -1667,6 +1738,9 @@ void GUIApp::handleOutputAwake(void* data)
 void GUIApp::updateLogsAfterAwake(void* data)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
+#ifdef _WINDOWS
+    guiapp->displayPendingAlert();
+#endif
     std::vector<NewLogsBufQueueElem> curLogsQueue;
     {
         std::lock_guard<std::mutex> l(stdOutputMutex);
@@ -1680,6 +1754,22 @@ void GUIApp::updateLogsAfterAwake(void* data)
     guiapp->updateTimerIsRun.store(false);
 }
 
+#ifdef _WINDOWS
+void GUIApp::updateLogsAtModalOp(void* data)
+{
+    GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
+    std::vector<NewLogsBufQueueElem> curLogsQueue;
+    {
+        std::lock_guard<std::mutex> l(stdOutputMutex);
+        curLogsQueue = guiapp->newLogsQueue;
+        guiapp->newLogsQueue.clear();
+    }
+    guiapp->testLogsGrp->updateLogs(curLogsQueue);
+    Fl::flush();
+    Fl::repeat_timeout(0.05, &GUIApp::updateLogsAtModalOp, data);
+}
+#endif
+
 void GUIApp::stressEndAwake(void* data)
 {
     GUIApp* guiapp = reinterpret_cast<GUIApp*>(data);
@@ -1691,6 +1781,10 @@ void GUIApp::stressEndAwake(void* data)
     delete guiapp->mainStressThread;
     guiapp->mainStressThread = nullptr;
     Fl::remove_timeout(&GUIApp::updateLogsAfterAwake, data);
+#ifdef _WINDOWS
+    Fl::remove_timeout(&GUIApp::updateLogsAtModalOp, data);
+    guiapp->displayPendingAlert();
+#endif
     guiapp->updateTimerIsRun.store(true);
     updateLogsAfterAwake(data); // flush anything from logsQueue
     
@@ -2053,6 +2147,9 @@ int main(int argc, const char** argv)
                 
         /* run window */
         GUIApp guiapp(choosenClDevices, gpuStressConfigs);
+#ifdef _WINDOWS
+        globalGUIApp = &guiapp;
+#endif
         if (!guiapp.run())
             retVal = 1;
     }
