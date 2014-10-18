@@ -86,14 +86,14 @@ SteadyClock::time_point SteadyClock::now()
     if (!QueryPerformanceCounter(&w))
         throw MyException("Can't get QPC clock time!");
     
-    const int64_t lx = w.LowPart * static_cast<rep>(period::den);
+    const int64_t lx = int64_t(w.LowPart) * int64_t(period::den);
     const int64_t lp = lx / g_Frequency;
     const int64_t lmod = lx - lp*g_Frequency;
-    const int64_t x = (int64_t(1)<<32) * static_cast<rep>(period::den);
+    const int64_t x = int64_t(period::den)<<32;
     const int64_t ih = x/g_Frequency;
-    const int64_t hmod = x-ih*g_Frequency;
+    const int64_t ihmod = x - ih*g_Frequency;
     const int64_t f = lp + int64_t(w.HighPart)*ih +
-            (int64_t(w.HighPart)*hmod + lmod)/g_Frequency;
+            (int64_t(w.HighPart)*ihmod + lmod)/g_Frequency;
     return time_point(duration(f));
 }
 
