@@ -96,8 +96,8 @@ static int printHelp = 0;
 static int printUsage = 0;
 static int printVersion = 0;
 
-static int progArgc = 9;
-static const char* progArgv[10] = { "gpustress-gui", "-scheme", "standard", "-bg", "#c0c0c0",
+static int progArgc = 7;
+static const char* progArgv[8] = { "gpustress-gui", "-bg", "#c0c0c0",
     "-bg2", "#ffffff", "-fg", "#000000", nullptr };
 
 static const poptOption optionsTable[] =
@@ -1545,11 +1545,7 @@ GUIApp::~GUIApp()
 {
 #ifdef _WINDOWS
     Fl::remove_handler(&GUIApp::windowModalOpHandler);
-    {
-        std::lock_guard<std::mutex> l(awakerMutex);
-        awakerExit = true;
-        awakerCond.notify_one();
-    }
+    notifyAwakerExit();
 #endif
     if (mainStressThread != nullptr)
     {
