@@ -7,9 +7,9 @@ Version 0.0.9.4 (18.10.2014):
 - updating logs when window moving/resizing (Windows, GUI)
 - addded support for QPC timer (Windows)
 - using steady clock for measuring performance and intervals
-- small improvements in running test
+- small improvements in test routine (gpustress-core)
 - added icon for program and program windows
-- added Makefile for MaxOSX (thanks for Felipe Machado)
+- added Makefile for MaxOSX (thanks Felipe Machado)
 
 Version 0.0.9.2 (12.10.2014):
 - fixed buffer overflow (only reading) while an appending to log (GUI, very unlikely)
