@@ -577,7 +577,7 @@ try :
         std::lock_guard<std::mutex> l(stdOutputMutex);
         *outStream << "#" << id << " Results for comparison has been generated." << std::endl;
         handleOutput(id);
-    }    
+    }
     
     // print results
     /*for (size_t i = 0; i < bufItemsNum; i++)
