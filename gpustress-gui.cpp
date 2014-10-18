@@ -1643,10 +1643,8 @@ bool GUIApp::run()
         oss << "GUI App returns abnormally with code:" << ret;
         oss.flush();
         std::string ossStr = oss.str();
-#ifdef _WINDOWS
-        MessageBox(0, ossStr.c_str(), "Error", MB_ICONERROR);
-#else
         std::cerr << ossStr << std::endl;
+#ifndef _WINDOWS
         fl_alert("%s", ossStr.c_str());
 #endif
         return false;
