@@ -1206,9 +1206,9 @@ void TestLogsGroup::saveLogChooserCalled(Fl_File_Chooser* fc, void* data)
         return;
     
 #ifdef _WINDOWS
-    if (::access(fc->value(), 0) == 0)
+    if (fl_access(fc->value(), 0) == 0)
 #else
-    if (::access(fc->value(), F_OK) == 0)
+    if (fl_access(fc->value(), F_OK) == 0)
 #endif
     {
         if (fl_choice("Do you want to save log to an existing file?",
