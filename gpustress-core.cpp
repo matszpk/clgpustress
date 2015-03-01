@@ -518,8 +518,8 @@ try :
     /* generate values to compare */
     if (!useInputAndOutput)
     {
-        clKernel.setArg(1, clBuffer1);
-        clKernel.setArg(2, clBuffer1);
+        clKernel.setArg(1, clBuffer1());
+        clKernel.setArg(2, clBuffer1());
     }
     
     for (cxuint i = 0; i < passItersNum; i++)
@@ -531,13 +531,13 @@ try :
         {
             if ((i&1) == 0)
             {
-                clKernel.setArg(1, clBuffer1);
-                clKernel.setArg(2, clBuffer2);
+                clKernel.setArg(1, clBuffer1());
+                clKernel.setArg(2, clBuffer2());
             }
             else
             {
-                clKernel.setArg(1, clBuffer2);
-                clKernel.setArg(2, clBuffer1);
+                clKernel.setArg(1, clBuffer2());
+                clKernel.setArg(2, clBuffer1());
             }
         }
         cl::Event clEvent;
@@ -708,11 +708,11 @@ void GPUStressTester::calibrateKernel()
             buildKernel(curKitersNum, blocksNum, false, true);
             
             clKernel.setArg(0, cl_uint(workSize));
-            clKernel.setArg(1, clBuffer1);
+            clKernel.setArg(1, clBuffer1());
             if (useInputAndOutput)
-                clKernel.setArg(2, clBuffer2);
+                clKernel.setArg(2, clBuffer2());
             else
-                clKernel.setArg(2, clBuffer1);
+                clKernel.setArg(2, clBuffer1());
             
             if (usePolyWalker)
             {
@@ -839,11 +839,11 @@ void GPUStressTester::calibrateKernel()
                     initialValues);
         
         clKernel.setArg(0, cl_uint(workSize));
-        clKernel.setArg(1, clBuffer1);
+        clKernel.setArg(1, clBuffer1());
         if (useInputAndOutput)
-            clKernel.setArg(2, clBuffer2);
+            clKernel.setArg(2, clBuffer2());
         else
-            clKernel.setArg(2, clBuffer1);
+            clKernel.setArg(2, clBuffer1());
         
         if (usePolyWalker)
         {
@@ -1064,8 +1064,8 @@ try
         /* run execution 1 */
         if (!useInputAndOutput)
         {
-            clKernel.setArg(1, clBuffer1);
-            clKernel.setArg(2, clBuffer1);
+            clKernel.setArg(1, clBuffer1());
+            clKernel.setArg(2, clBuffer1());
         }
         
         cxuint stepsAfterWait = 0;
@@ -1081,13 +1081,13 @@ try
             {
                 if ((i&1) == 0)
                 {
-                    clKernel.setArg(1, clBuffer1);
-                    clKernel.setArg(2, clBuffer2);
+                    clKernel.setArg(1, clBuffer1());
+                    clKernel.setArg(2, clBuffer2());
                 }
                 else
                 {
-                    clKernel.setArg(1, clBuffer2);
-                    clKernel.setArg(2, clBuffer1);
+                    clKernel.setArg(1, clBuffer2());
+                    clKernel.setArg(2, clBuffer1());
                 }
             }
             clCmdQueue1.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
@@ -1189,8 +1189,8 @@ try
         /* run execution 2 */
         if (!useInputAndOutput)
         {
-            clKernel.setArg(1, clBuffer3);
-            clKernel.setArg(2, clBuffer3);
+            clKernel.setArg(1, clBuffer3());
+            clKernel.setArg(2, clBuffer3());
         }
         
         stepsAfterWait = 0;
@@ -1206,13 +1206,13 @@ try
             {
                 if ((i&1) == 0)
                 {
-                    clKernel.setArg(1, clBuffer3);
-                    clKernel.setArg(2, clBuffer4);
+                    clKernel.setArg(1, clBuffer3());
+                    clKernel.setArg(2, clBuffer4());
                 }
                 else
                 {
-                    clKernel.setArg(1, clBuffer4);
-                    clKernel.setArg(2, clBuffer3);
+                    clKernel.setArg(1, clBuffer4());
+                    clKernel.setArg(2, clBuffer3());
                 }
             }
             clCmdQueue1.enqueueNDRangeKernel(clKernel, cl::NDRange(0),
