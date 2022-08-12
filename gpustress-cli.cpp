@@ -213,7 +213,7 @@ static void installSignals()
     oldSigIntAct = sigAct;
     isOldSigIntAct = true;
     
-    alternateStack = ::malloc(MINSIGSTKSZ);
+    alternateStack = ::malloc(SIGSTKSZ);
     if (alternateStack == nullptr)
         std::cerr << "WARNING: Signal handling without alternate stack" << std::endl;
     
@@ -221,7 +221,7 @@ static void installSignals()
     {
         stkSpec.ss_sp = alternateStack;
         stkSpec.ss_flags = 0;
-        stkSpec.ss_size = MINSIGSTKSZ;
+        stkSpec.ss_size = SIGSTKSZ;
         if (sigaltstack(&stkSpec, &oldAltStack) != 0)
         {
             ::free(alternateStack);
