@@ -5,14 +5,14 @@
 
 .PHONY: all clean
 
-OPENCLDIR = .
+OPENCLDIR ?= .
 
-LDFLAGS = -Wall
-CXXFLAGS = -Wall -std=gnu++11 -Os -fexpensive-optimizations
+LDFLAGS := -Wall $(LDFLAGS)
+CXXFLAGS := -Wall -std=gnu++11 -Os -fexpensive-optimizations $(CXXFLAGS)
 # CXXFLAGS = -Wall -g -std=gnu++11
-CXX = g++
-LIBDIRS = -L$(OPENCLDIR)/lib
-INCDIRS = -I$(OPENCLDIR)/include -I`fltk-config --includedir`
+CXX ?= g++
+LIBDIRS := -L$(OPENCLDIR)/lib $(LIBDIRS)
+INCDIRS := -I$(OPENCLDIR)/include -I`fltk-config --includedir` $(INCDIRS)
 LIBS = -lm -pthread -lpopt -lOpenCL
 GUILIBS = `fltk-config --ldstaticflags` -lXpm
 
